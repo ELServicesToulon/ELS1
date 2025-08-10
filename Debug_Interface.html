@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panneau de Débogage</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        h1 { color: #333; }
+        .test-suite { background-color: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        h3 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
+        button { font-size: 14px; background-color: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin-right: 10px; transition: background-color 0.2s; }
+        button:hover { background-color: #0056b3; }
+        button.specific-test-btn { background-color: #28a745; }
+        button.specific-test-btn:hover { background-color: #218838; }
+        #results { margin-top: 20px; background-color: #2b2b2b; color: #f1f1f1; padding: 15px; border-radius: 5px; white-space: pre-wrap; font-family: 'Courier New', Courier, monospace; height: 400px; overflow-y: auto; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <h1>Panneau de Débogage</h1>
+
+    <div class="test-suite">
+        <h3>Tests Complets</h3>
+        <p>Lance l'ensemble des tests du back-office. Les résultats s'afficheront dans la console ci-dessous et dans les journaux Apps Script.</p>
+        <button id="btn-run-all">Lancer tous les tests</button>
+    </div>
+
+    <!-- NOUVELLE SECTION POUR LE TEST DE PARRAINAGE -->
+    <div class="test-suite">
+        <h3>Test Spécifique : Système de Parrainage</h3>
+        <p>Vérifie la génération de code, la validation et l'attribution des crédits du système de parrainage.</p>
+        <button id="btn-run-sponsorship-test" class="specific-test-btn">Lancer le test de parrainage</button>
+    </div>
+    
+    <div id="results">
+        Cliquez sur un bouton pour lancer les tests...
+    </div>
+
+    <script>
+        const resultsDiv = document.getElementById('results');
+
+        function runTest(testFunction, button) {
+            resultsDiv.textContent = 'Lancement des tests... Veuillez patienter.';
+            button.disabled = true;
+            google.script.run
+                .withSuccessHandler(logs => {
+                    resultsDiv.textContent = "Tests terminés !\n\n" + logs;
+                    button.disabled = false;
+                })
+                .withFailureHandler(err => {
+                    resultsDiv.textContent = "Une erreur est survenue : " + err.message;
+                    button.disabled = false;
+                })
+                [testFunction](); // Appel dynamique de la fonction
+        }
+
+        document.getElementById('btn-run-all').addEventListener('click', (e) => {
+            runTest('lancerTousLesTestsEtRetournerLogs', e.target);
+        });
+
+        document.getElementById('btn-run-sponsorship-test').addEventListener('click', (e) => {
+            runTest('lancerTestParrainageEtRetournerLogs', e.target);
+        });
+    </script>
+</body>
+</html>

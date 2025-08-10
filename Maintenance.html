@@ -1,0 +1,356 @@
+// =================================================================
+//        MAINTENANCE, SAUVEGARDE, JOURNALISATION & SUPERVISION
+// =================================================================
+// Description: Module pour la journalisation, la sauvegarde et la purge.
+// Dépendances: Appelle la fonction getConfiguration() du fichier
+//              "Configuration.gs" et utilise les fonctions du fichier
+//              "Utilitaires.gs".
+// =================================================================
+
+
+// =================================================================
+//                      1. JOURNALISATION (LOGGING)
+// =================================================================
+
+function logAdminAction(action, statut) {
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
+    let feuilleLog = ss.getSheetByName("Admin_Logs");
+    if (!feuilleLog) {
+      feuilleLog = ss.insertSheet("Admin_Logs");
+      feuilleLog.appendRow(["Timestamp", "Utilisateur", "Action", "Statut"]);
+    }
+    const utilisateur = Session.getActiveUser().getEmail() || "Utilisateur inconnu";
+    feuilleLog.appendRow([new Date(), utilisateur, action, statut]);
+  } catch (e) {
+    Logger.log(`Impossible de journaliser l'action admin : ${e.toString()}`);
+  }
+}
+
+function logActivity(idReservation, emailClient, resume, prix, statut) {
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
+    let feuilleLog = ss.getSheetByName("Logs");
+    if (!feuilleLog) {
+      feuilleLog = ss.insertSheet("Logs");
+      feuilleLog.appendRow(["Timestamp", "Reservation ID", "Client Email", "Résumé", "Montant", "Statut"]);
+    }
+    feuilleLog.appendRow([new Date(), idReservation, emailClient, resume, prix, statut]);
+  } catch (e) {
+    Logger.log(`Impossible de journaliser l'activité : ${e.toString()}`);
+  }
+}
+
+function notifyAdminWithThrottle(typeErreur, sujet, corps) {
+  const cache = CacheService.getScriptCache();
+  const cleCache = `erreur_notification_${typeErreur}`;
+  if (cache.get(cleCache)) {
+    Logger.log(`Notification pour l'erreur "${typeErreur}" déjà envoyée. Envoi ignoré.`);
+    return;
+  }
+  try {
+    MailApp.sendEmail(CONFIG.ADMIN_EMAIL, sujet, corps);
+    cache.put(cleCache, 'envoye', 3600); // Bloque pour 1 heure
+  } catch (e) {
+    Logger.log(`Échec de l'envoi de l'e-mail de notification : ${e.toString()}`);
+  }
+}
+
+// =================================================================
+//                      2. SAUVEGARDE (CODE & DONNÉES)
+// =================================================================
+
+function sauvegarderCodeProjet() {
+  logAdminAction("Sauvegarde manuelle du code", "Démarré");
+  const ui = SpreadsheetApp.getUi();
+  try {
+    const fichiers = recupererTousLesFichiersProjet();
+    if (!fichiers) {
+      throw new Error("Impossible de récupérer les fichiers du projet. L'API Google Apps Script est peut-être désactivée.");
+    }
+    
+    const horodatage = formaterDatePersonnalise(new Date(), "yyyy-MM-dd'_'HH'h'mm");
+    const nomDossierSauvegarde = `Sauvegarde Code ${horodatage}`;
+    
+    const dossierProjet = DriveApp.getFileById(CONFIG.ID_FEUILLE_CALCUL).getParents().next();
+    const dossierParentSauvegardes = obtenirOuCreerDossier(dossierProjet, "Sauvegardes Code");
+    const dossierSauvegarde = dossierParentSauvegardes.createFolder(nomDossierSauvegarde);
+    
+    fichiers.forEach(fichier => {
+      const nomFichier = fichier.type === 'SERVER_JS' ? `${fichier.name}.gs` : `${fichier.name}.html`;
+      dossierSauvegarde.createFile(nomFichier, fichier.source, MimeType.PLAIN_TEXT);
+    });
+
+    ui.alert('Sauvegarde Réussie', `Le projet a été sauvegardé dans le dossier :\n"${nomDossierSauvegarde}"`, ui.ButtonSet.OK);
+    logAdminAction("Sauvegarde manuelle du code", "Succès");
+  } catch (e) {
+    Logger.log(`Erreur de sauvegarde manuelle : ${e.stack}`);
+    ui.alert('Erreur de sauvegarde', `Une erreur est survenue : ${e.message}`, ui.ButtonSet.OK);
+    logAdminAction("Sauvegarde manuelle du code", `Échec : ${e.message}`);
+  }
+}
+
+function sauvegarderDonnees() {
+  logAdminAction("Sauvegarde des données", "Démarré");
+  try {
+    const ssOriginale = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
+    
+    const dossierProjet = DriveApp.getFileById(CONFIG.ID_FEUILLE_CALCUL).getParents().next();
+    const dossierParentSauvegardes = obtenirOuCreerDossier(dossierProjet, "Sauvegardes Données");
+
+    const horodatage = formaterDatePersonnalise(new Date(), "yyyy-MM-dd");
+    const ssSauvegarde = SpreadsheetApp.create(`Sauvegarde Données - ${horodatage}`);
+    DriveApp.getFileById(ssSauvegarde.getId()).moveTo(dossierParentSauvegardes);
+
+    CONFIG.FEUILLES_A_SAUVEGARDER.forEach(nomFeuille => {
+      const feuille = ssOriginale.getSheetByName(nomFeuille);
+      if (feuille) {
+        feuille.copyTo(ssSauvegarde).setName(nomFeuille);
+      }
+    });
+    
+    const feuilleParDefaut = ssSauvegarde.getSheetByName('Sheet1');
+    if (feuilleParDefaut) {
+      ssSauvegarde.deleteSheet(feuilleParDefaut);
+    }
+    
+    Logger.log(`Sauvegarde des données réussie. Fichier : ${ssSauvegarde.getUrl()}`);
+    logAdminAction("Sauvegarde des données", `Succès : ${ssSauvegarde.getName()}`);
+
+  } catch (e) {
+    Logger.log(`Erreur lors de la sauvegarde des données : ${e.toString()}`);
+    logAdminAction("Sauvegarde des données", `Échec : ${e.message}`);
+    notifyAdminWithThrottle('ERREUR_SAUVEGARDE_DONNEES', `[${CONFIG.NOM_ENTREPRISE}] Erreur Sauvegarde Données`, `Erreur: ${e.message}`);
+  }
+}
+
+function recupererTousLesFichiersProjet() {
+  const idScript = ScriptApp.getScriptId();
+  const url = `https://script.google.com/feeds/download/export?id=${idScript}&format=json`;
+  const options = {
+    headers: { Authorization: `Bearer ${ScriptApp.getOAuthToken()}` },
+    muteHttpExceptions: true
+  };
+  
+  const reponse = UrlFetchApp.fetch(url, options);
+  if (reponse.getResponseCode() === 200) {
+    return JSON.parse(reponse.getContentText()).files;
+  } else {
+    Logger.log(`Échec de l'appel à l'API Apps Script (Code: ${reponse.getResponseCode()}).`);
+    return null;
+  }
+}
+
+// =================================================================
+//                      3. PURGE (RGPD & NETTOYAGE)
+// =================================================================
+
+function purgerAnciennesDonnees() {
+  logAdminAction("Purge RGPD (Données + Fichiers)", "Démarré");
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
+    
+    const feuilleFacturation = ss.getSheetByName("Facturation");
+    if (feuilleFacturation && feuilleFacturation.getLastRow() > 1) {
+        const indices = obtenirIndicesEnTetes(feuilleFacturation, ["Date", "ID PDF"]);
+        const dateColFact = indices["Date"];
+        const idPdfCol = indices["ID PDF"];
+
+        const dateLimiteFactures = new Date();
+        dateLimiteFactures.setFullYear(dateLimiteFactures.getFullYear() - CONFIG.RETENTION_FACTURES_ANNEES);
+        const { lignesSupprimees, idsFichiersSupprimes } = purgerDonneesFeuille(feuilleFacturation, dateColFact, idPdfCol, dateLimiteFactures);
+        
+        let fichiersSupprimes = 0;
+        idsFichiersSupprimes.forEach(idFichier => {
+          try {
+            if (idFichier) {
+              DriveApp.getFileById(idFichier).setTrashed(true);
+              fichiersSupprimes++;
+            }
+          } catch (e) {
+            Logger.log(`Impossible de supprimer le fichier PDF avec l'ID ${idFichier}. Erreur: ${e.message}`);
+          }
+        });
+        Logger.log(`${lignesSupprimees} ligne(s) de facturation purgée(s) et ${fichiersSupprimes} PDF supprimé(s).`);
+    }
+
+    const feuilleLog = ss.getSheetByName("Logs");
+    if (feuilleLog && feuilleLog.getLastRow() > 1) {
+        const indices = obtenirIndicesEnTetes(feuilleLog, ["Timestamp"]);
+        const dateColLog = indices["Timestamp"];
+        const dateLimiteLogs = new Date();
+        dateLimiteLogs.setMonth(dateLimiteLogs.getMonth() - CONFIG.RETENTION_LOGS_MOIS);
+        const { lignesSupprimees: logsSupprimes } = purgerDonneesFeuille(feuilleLog, dateColLog, -1, dateLimiteLogs);
+        Logger.log(`${logsSupprimes} ligne(s) de log purgée(s).`);
+    }
+    
+    logAdminAction("Purge RGPD", "Succès");
+
+  } catch (e) {
+    Logger.log(`Erreur durant la purge RGPD : ${e.stack}`);
+    logAdminAction("Purge RGPD", `Échec : ${e.message}`);
+    notifyAdminWithThrottle('ERREUR_PURGE_RGPD', `[${CONFIG.NOM_ENTREPRISE}] Erreur Purge RGPD`, `Erreur: ${e.message}`);
+  }
+}
+
+function purgerDonneesFeuille(feuille, indexColonneDate, indexColonneIdFichier, dateLimite) {
+  if (!feuille) return { lignesSupprimees: 0, idsFichiersSupprimes: [] };
+  
+  const donnees = feuille.getDataRange().getValues();
+  let lignesSupprimees = 0;
+  const idsFichiersSupprimes = [];
+  
+  for (let i = donnees.length - 1; i >= 1; i--) { // Itère de bas en haut pour éviter les problèmes d'index
+    const dateLigne = new Date(donnees[i][indexColonneDate]);
+    if (dateLigne && !isNaN(dateLigne) && dateLigne < dateLimite) {
+      if (indexColonneIdFichier !== -1 && donnees[i][indexColonneIdFichier]) {
+        idsFichiersSupprimes.push(donnees[i][indexColonneIdFichier]);
+      }
+      feuille.deleteRow(i + 1);
+      lignesSupprimees++;
+    }
+  }
+  return { lignesSupprimees, idsFichiersSupprimes };
+}
+
+/**
+ * Nettoie les jetons d'authentification expirés de la feuille AuthTokens.
+ * Peut être exécutée par un déclencheur temporel.
+ */
+function purgerTokensExpires() {
+  try {
+    const ss = SpreadsheetApp.openById(getConfiguration().ID_FEUILLE_CALCUL);
+    const sheet = ss.getSheetByName("AuthTokens");
+    if (!sheet || sheet.getLastRow() < 2) {
+      Logger.log("La feuille AuthTokens est vide ou introuvable. Aucun nettoyage de jeton nécessaire.");
+      return;
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const expiryIndex = headers.indexOf("TimestampExpiration");
+    if (expiryIndex === -1) {
+        Logger.log("La colonne 'TimestampExpiration' est introuvable dans AuthTokens. Annulation de la purge.");
+        return;
+    }
+    const maintenant = new Date();
+    let lignesSupprimees = 0;
+
+    // Itérer de bas en haut pour que la suppression de lignes n'affecte pas les indices
+    for (let i = data.length - 1; i >= 1; i--) {
+        const expiration = new Date(data[i][expiryIndex]);
+        if (!isNaN(expiration.getTime()) && expiration < maintenant) {
+            sheet.deleteRow(i + 1);
+            lignesSupprimees++;
+        }
+    }
+
+    if(lignesSupprimees > 0) {
+        Logger.log(`${lignesSupprimees} jeton(s) expiré(s) ont été purgés.`);
+    }
+
+  } catch (e) {
+    Logger.log(`Erreur lors de la purge des jetons expirés : ${e.stack}`);
+  }
+}
+
+// =================================================================
+//                      4. AUDIT & VÉRIFICATION
+// =================================================================
+
+function verifierCoherenceCalendrier() {
+  const ui = SpreadsheetApp.getUi();
+  ui.alert("Démarrage de l'audit", "La vérification de la cohérence avec le calendrier va commencer...", ui.ButtonSet.OK);
+  logAdminAction("Vérification Cohérence Calendrier", "Démarré");
+
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
+    const feuille = ss.getSheetByName("Facturation");
+    if (!feuille || feuille.getLastRow() < 2) {
+      Logger.log("La feuille 'Facturation' est introuvable ou vide. Audit annulé.");
+      ui.alert("Audit annulé", "La feuille 'Facturation' est introuvable ou ne contient pas de données à vérifier.", ui.ButtonSet.OK);
+      return;
+    }
+
+    const indices = obtenirIndicesEnTetes(feuille, ["ID Réservation", "Event ID", "Date"]);
+    const donnees = feuille.getRange(2, 1, feuille.getLastRow() - 1, feuille.getLastColumn()).getValues();
+    
+    let incoherences = [];
+    let reservationsVerifiees = 0;
+
+    donnees.forEach((ligne, index) => {
+      const numLigne = index + 2;
+      const idReservation = ligne[indices["ID Réservation"]];
+      const eventId = ligne[indices["Event ID"]];
+      const dateSheet = new Date(ligne[indices["Date"]]);
+      reservationsVerifiees++;
+
+      if (!eventId) {
+        incoherences.push(`- Ligne ${numLigne} (ID: ${idReservation}): Aucun 'Event ID' n'est enregistré.`);
+        return;
+      }
+
+      try {
+        const evenement = Calendar.Events.get(CONFIG.ID_CALENDRIER, eventId);
+        const dateCalendrier = new Date(evenement.start.dateTime || evenement.start.date);
+        
+        if (formaterDateEnYYYYMMDD(dateSheet) !== formaterDateEnYYYYMMDD(dateCalendrier)) {
+          incoherences.push(`- Ligne ${numLigne} (ID: ${idReservation}): Incohérence de date. Sheet: ${formaterDateEnYYYYMMDD(dateSheet)}, Calendrier: ${formaterDateEnYYYYMMDD(dateCalendrier)}.`);
+        }
+      } catch (e) {
+        if (e.message.includes("Not Found")) {
+          incoherences.push(`- Ligne ${numLigne} (ID: ${idReservation}): L'événement (ID: ${eventId}) est INTROUVABLE dans le calendrier.`);
+        } else {
+          incoherences.push(`- Ligne ${numLigne} (ID: ${idReservation}): Erreur API pour l'événement ${eventId}: ${e.message}`);
+        }
+      }
+    });
+    
+    let rapportHtml = `<h1>Rapport de cohérence Calendrier</h1><p><strong>${reservationsVerifiees}</strong> réservations analysées.</p>`;
+    if (incoherences.length === 0) {
+      rapportHtml += `<p style="color: green;"><strong>Aucune incohérence trouvée.</strong></p>`;
+    } else {
+      rapportHtml += `<p style="color: red;"><strong>${incoherences.length} incohérence(s) détectée(s) :</strong></p><pre>${incoherences.join('<br>')}</pre>`;
+    }
+    
+    const output = HtmlService.createHtmlOutput(rapportHtml).setWidth(600).setHeight(400);
+    ui.showModalDialog(output, "Rapport de cohérence");
+    logAdminAction("Vérification Cohérence Calendrier", `Terminée. ${incoherences.length} incohérence(s).`);
+
+  } catch (e) {
+    Logger.log(`Erreur fatale durant la vérification de cohérence : ${e.stack}`);
+    logAdminAction("Vérification Cohérence Calendrier", `Échec critique : ${e.message}`);
+    ui.alert("Erreur Critique", `L'audit a échoué : ${e.message}`, ui.ButtonSet.OK);
+  }
+}
+
+// =================================================================
+//                      5. INITIALISATION
+// =================================================================
+
+/**
+ * Crée la feuille 'AuthTokens' si elle n'existe pas.
+ * Doit être exécutée manuellement une fois pour la configuration initiale.
+ */
+function initialiserFeuilleAuthTokens() {
+  try {
+    const ss = SpreadsheetApp.openById(getConfiguration().ID_FEUILLE_CALCUL);
+    const sheetName = "AuthTokens";
+    let sheet = ss.getSheetByName(sheetName);
+
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      const headers = ["Token", "Email", "TimestampExpiration"];
+      sheet.appendRow(headers);
+      sheet.getRange("A1:C1").setFontWeight("bold");
+      Logger.log(`La feuille "${sheetName}" a été créée avec les en-têtes.`);
+      SpreadsheetApp.getUi().alert(`La feuille "${sheetName}" a été créée avec succès.`);
+    } else {
+      Logger.log(`La feuille "${sheetName}" existe déjà.`);
+      SpreadsheetApp.getUi().alert(`La feuille "${sheetName}" existe déjà.`);
+    }
+  } catch (e) {
+    Logger.log(`Erreur lors de l'initialisation de la feuille AuthTokens : ${e.stack}`);
+    SpreadsheetApp.getUi().alert(`Une erreur est survenue : ${e.message}`);
+  }
+}

@@ -1,0 +1,144 @@
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const champDate = document.getElementById('date-livraison');
+    const contenuReservations = document.getElementById('contenu-reservations');
+
+    function initialiser() {
+        const aujourdhui = new Date().toISOString().split('T')[0];
+        if (champDate) {
+            champDate.value = aujourdhui;
+            champDate.addEventListener('change', () => chargerReservations(champDate.value));
+        }
+        chargerReservations(aujourdhui);
+    }
+
+    function chargerReservations(dateString) {
+        if (!dateString) return;
+        basculerIndicateurChargement(true);
+        if (contenuReservations) contenuReservations.innerHTML = '<p>Chargement des courses...</p>';
+
+        google.script.run
+            .withSuccessHandler(reponse => {
+                basculerIndicateurChargement(false);
+                if (reponse.success) {
+                    afficherReservations(reponse.reservations);
+                } else {
+                    afficherErreur(reponse.error);
+                    if (contenuReservations) contenuReservations.innerHTML = `<p style="color: red;">${reponse.error}</p>`;
+                }
+            })
+            .withFailureHandler(afficherErreur)
+            .getReservationsPourLivreur(dateString);
+    }
+
+    function afficherReservations(reservations) {
+        if (!contenuReservations) return;
+        contenuReservations.innerHTML = '';
+        if (reservations.length === 0) {
+            contenuReservations.innerHTML = '<div class="carte"><p>Aucune course prévue pour cette date.</p></div>';
+            return;
+        }
+
+        reservations.forEach(resa => {
+            const resaElement = document.createElement('div');
+            resaElement.className = 'carte reservation-item';
+            resaElement.dataset.id = resa.id;
+
+            const heureDebut = new Date(resa.start).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+            resaElement.innerHTML = `
+                <h4>${heureDebut} - ${resa.clientName}</h4>
+                <p>${resa.details}</p>
+                <div class="details-livraison">
+                  <div class="groupe-formulaire">
+                    <label for="note-${resa.id}">Note de livraison :</label>
+                    <textarea id="note-${resa.id}" rows="2"></textarea>
+                  </div>
+                  <div class="groupe-checkboxes">
+                    <label><input type="checkbox" data-option="frigo"> Frigo</label>
+                    <label><input type="checkbox" data-option="tampon"> Tampon</label>
+                    <label><input type="checkbox" data-option="reprise"> Reprise</label>
+                    <label><input type="checkbox" data-option="extras"> Extras</label>
+                  </div>
+                  <div class="actions-livraison">
+                    <button class="btn btn-primaire btn-enregistrer">Enregistrer</button>
+                  </div>
+                </div>
+            `;
+            contenuReservations.appendChild(resaElement);
+        });
+
+        attacherEcouteursActions();
+    }
+
+    function attacherEcouteursActions() {
+        document.querySelectorAll('.btn-enregistrer').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const itemDiv = e.target.closest('.reservation-item');
+                if (!itemDiv) return;
+
+                const idReservation = itemDiv.dataset.id;
+                const note = itemDiv.querySelector('textarea').value;
+                const options = {
+                    frigo: itemDiv.querySelector('[data-option="frigo"]').checked,
+                    tampon: itemDiv.querySelector('[data-option="tampon"]').checked,
+                    reprise: itemDiv.querySelector('[data-option="reprise"]').checked,
+                    extras: itemDiv.querySelector('[data-option="extras"]').checked
+                };
+
+                enregistrerDetails(idReservation, note, options, e.target);
+            });
+        });
+    }
+
+    function enregistrerDetails(idReservation, note, options, button) {
+        basculerIndicateurChargement(true);
+        if (button) button.disabled = true;
+
+        const details = { idReservation, note, options };
+
+        google.script.run
+            .withSuccessHandler(reponse => {
+                basculerIndicateurChargement(false);
+                if (button) button.disabled = false;
+                if (reponse.success) {
+                    afficherNotification("Détails enregistrés !", "succes");
+                } else {
+                    afficherErreur(reponse.error);
+                }
+            })
+            .withFailureHandler(err => {
+                if (button) button.disabled = false;
+                afficherErreur(err);
+            })
+            .enregistrerDetailsLivraison(details);
+    }
+
+    function basculerIndicateurChargement(afficher) {
+        const indicateur = document.getElementById('indicateur-chargement');
+        if (indicateur) indicateur.classList.toggle('hidden', !afficher);
+    }
+
+    function afficherNotification(message, type = "succes") {
+        const conteneur = document.getElementById('conteneur-notifications');
+        if (!conteneur) return;
+        const notif = document.createElement('div');
+        notif.className = `notification ${type}`;
+        notif.textContent = message;
+        conteneur.appendChild(notif);
+        setTimeout(() => {
+            notif.style.opacity = '0';
+            setTimeout(() => notif.remove(), 500);
+        }, 4000);
+    }
+
+    function afficherErreur(erreur) {
+        basculerIndicateurChargement(false);
+        const message = typeof erreur === 'object' && erreur.message ? erreur.message : String(erreur);
+        afficherNotification(`Erreur : ${message}`, "erreur");
+        console.error(erreur);
+    }
+
+    initialiser();
+});
+</script>

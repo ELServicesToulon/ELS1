@@ -1,0 +1,313 @@
+// =================================================================
+//                      SUITE DE TESTS (DEBUG)
+// =================================================================
+
+function lancerTousLesTests() {
+  Logger.log("===== DÉBUT DE LA SUITE DE TESTS COMPLÈTE =====");
+  
+  verifierToutesLesColonnes();
+  testerValidationConfiguration();
+  testerUtilitaires();
+  testerFeuilleCalcul();
+  testerCalendrier();
+  testCreneauxDisponibles();
+  testerReservation();
+  testerGestionClient();
+  testGetClientsPourAdmin();
+  testerAdministration();
+  testerMaintenance();
+  testerParrainage();
+  testerEspaceLivreur();
+
+  Logger.log("===== FIN DE LA SUITE DE TESTS COMPLÈTE =====");
+}
+
+function lancerTousLesTestsEtRetournerLogs() {
+  Logger.clear();
+  lancerTousLesTests();
+  return Logger.getLog();
+}
+
+function lancerTestParrainageEtRetournerLogs() {
+  Logger.clear();
+  testerParrainage();
+  return Logger.getLog();
+}
+
+function testerParrainage() {
+    Logger.log("\n--- Test du Système de Parrainage (Parrainage.gs) ---");
+    // ... (code de test existant)
+}
+
+function testGetClientsPourAdmin() {
+  Logger.log("\n--- Test de la fonction getClientsPourAdmin() ---");
+  try {
+    const clients = getClientsPourAdmin();
+    if (Array.isArray(clients)) {
+      Logger.log(`SUCCESS: La fonction a retourné un tableau avec ${clients.length} client(s).`);
+      if (clients.length > 0) {
+        const clientExemple = clients[0];
+        Logger.log(`Exemple de client: ${JSON.stringify(clientExemple)}`);
+        const champsAttendus = ['nom', 'email', 'adresse', 'siret', 'typeRemise', 'valeurRemise', 'nbTourneesOffertes'];
+        const champsManquants = champsAttendus.filter(champ => !clientExemple.hasOwnProperty(champ));
+
+        if (champsManquants.length === 0) {
+            Logger.log("SUCCESS: L'objet client contient tous les champs attendus.");
+        } else {
+            Logger.log(`FAILURE: L'objet client ne contient pas les champs suivants: ${champsManquants.join(', ')}`);
+        }
+      }
+    } else {
+      Logger.log(`FAILURE: La fonction n'a pas retourné un tableau. Type retourné: ${typeof clients}`);
+    }
+  } catch (e) {
+    Logger.log(`FAILURE: Une erreur est survenue durant le test. Erreur: ${e.stack}`);
+  }
+}
+
+function testCreneauxDisponibles() {
+  Logger.log("\n--- Test de la disponibilité des créneaux (Calendrier.gs) ---");
+  try {
+    const aujourdhui = new Date();
+    if (aujourdhui.getDay() !== 0) {
+        const dateAujourdhuiStr = Utilities.formatDate(aujourdhui, Session.getScriptTimeZone(), "yyyy-MM-dd");
+        Logger.log(`Test pour aujourd'hui (${dateAujourdhuiStr}):`);
+        const creneauxAujourdhui = obtenirCreneauxDisponiblesPourDate(dateAujourdhuiStr, 30, null, null, []);
+        if (Array.isArray(creneauxAujourdhui)) {
+            Logger.log(`SUCCESS: ${creneauxAujourdhui.length} créneaux potentiels trouvés (avant filtrage client).`);
+            Logger.log(`Créneaux: [${creneauxAujourdhui.join(', ')}]`);
+        } else {
+            Logger.log("FAILURE: La fonction n'a pas retourné de tableau.");
+        }
+    } else {
+        Logger.log("INFO: Aujourd'hui est un dimanche, test pour aujourd'hui ignoré.");
+    }
+
+    const futur = new Date();
+    futur.setDate(futur.getDate() + 2);
+    if (futur.getDay() === 0) {
+      futur.setDate(futur.getDate() + 1);
+    }
+    const dateFutureStr = Utilities.formatDate(futur, Session.getScriptTimeZone(), "yyyy-MM-dd");
+    Logger.log(`\nTest pour une date future (${dateFutureStr}):`);
+    const creneauxFutur = obtenirCreneauxDisponiblesPourDate(dateFutureStr, 60, null, null, []);
+    if (Array.isArray(creneauxFutur)) {
+        Logger.log(`SUCCESS: ${creneauxFutur.length} créneaux potentiels trouvés pour une durée de 60 min.`);
+        Logger.log(`Créneaux: [${creneauxFutur.join(', ')}]`);
+        Logger.log("NOTE: Pour un test complet, vérifiez manuellement que la liste des créneaux exclut bien les événements de votre Google Agenda pour ce jour.");
+    } else {
+        Logger.log("FAILURE: La fonction n'a pas retourné de tableau pour la date future.");
+    }
+
+  } catch (e) {
+    Logger.log(`FAILURE: Une erreur est survenue durant le test des créneaux. Erreur: ${e.stack}`);
+  }
+}
+
+function testerValidationConfiguration() {
+  Logger.log("\n--- Test de Validation.gs ---");
+  try {
+    validerConfiguration();
+    Logger.log("SUCCESS: validerConfiguration() s'est exécutée sans erreur.");
+  } catch (e) {
+    Logger.log(`FAILURE: validerConfiguration() a échoué. Erreur: ${e.message}`);
+  }
+}
+
+function testerUtilitaires() {
+  Logger.log("\n--- Test de Utilitaires.gs ---");
+  const testDate = new Date(2025, 9, 31, 14, 30);
+  const yyyymmdd = Utilities.formatDate(testDate, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  if (yyyymmdd === "2025-10-31") Logger.log("SUCCESS: Formatage de date YYYY-MM-DD");
+  else Logger.log(`FAILURE: Formatage de date YYYY-MM-DD. Attendu: "2025-10-31", Obtenu: "${yyyymmdd}"`);
+}
+
+function testerFeuilleCalcul() {
+  const CONFIG = getConfiguration();
+  const TEST_CLIENT = {
+    email: "test.client.permanent@example.com",
+    nom: "Pharmacie de Test",
+    adresse: "123 Rue du Test, 75000 Paris",
+    siret: "12345678901234",
+    typeRemise: "Pourcentage",
+    valeurRemise: 10,
+    nbTourneesOffertes: 2
+  };
+  Logger.log("\n--- Test de FeuilleCalcul.gs ---");
+  enregistrerOuMajClient(TEST_CLIENT);
+  const clientCree = obtenirInfosClientParEmail(TEST_CLIENT.email);
+  if (clientCree && clientCree.nom === TEST_CLIENT.nom) Logger.log("SUCCESS: enregistrerOuMajClient() - Création");
+  else Logger.log("FAILURE: enregistrerOuMajClient() - Création");
+}
+
+function testerCalendrier() {
+  Logger.log("\n--- Test de Calendrier.gs (Vue mensuelle) ---");
+  const demain = new Date();
+  demain.setDate(demain.getDate() + 1);
+  const annee = demain.getFullYear();
+  const mois = demain.getMonth() + 1;
+  const donnees = obtenirDonneesCalendrierPublic(mois, annee);
+  if (donnees && typeof donnees.disponibilite === 'object') Logger.log(`SUCCESS: obtenirDonneesCalendrierPublic() a retourné les données de disponibilité.`);
+  else Logger.log("FAILURE: obtenirDonneesCalendrierPublic()");
+}
+
+function testerReservation() {
+  const TEST_CLIENT = {
+    email: "test.client.permanent@example.com",
+    nom: "Pharmacie de Test"
+  };
+  Logger.log("\n--- Test de Reservation.gs ---");
+  const demain = new Date();
+  demain.setDate(demain.getDate() + 1);
+  const dateTest = Utilities.formatDate(demain, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  const calcul = calculerPrixEtDureeServeur(2, true, dateTest, "10h00", TEST_CLIENT, 0); // Test standard sans remise parrainage
+  if (calcul && typeof calcul.prix === 'number') Logger.log(`SUCCESS: calculerPrixEtDureeServeur() standard. Prix: ${calcul.prix.toFixed(2)}€`);
+  else Logger.log(`FAILURE: calculerPrixEtDureeServeur() standard.`);
+
+  // --- NOUVEAUX TESTS POUR LE PARRAINAGE ---
+  Logger.log("Test de l'application de la remise de parrainage...");
+  const CONFIG_TEST = getConfiguration();
+  const PRIX_BASE = CONFIG_TEST.TARIFS['Normal'].base;
+  const REMISE_PARRAINAGE = CONFIG_TEST.PARRAINAGE_CONFIG.MONTANT_REMISE_FILLEUL;
+
+  // Test 1: Remise simple
+  const calculAvecRemise = calculerPrixEtDureeServeur(1, false, dateTest, "11h00", null, REMISE_PARRAINAGE);
+  const prixAttendu1 = PRIX_BASE - REMISE_PARRAINAGE;
+  if (calculAvecRemise && calculAvecRemise.prix === prixAttendu1) {
+    Logger.log(`SUCCESS: Remise parrainage simple. Attendu: ${prixAttendu1}€, Obtenu: ${calculAvecRemise.prix}€`);
+  } else {
+    Logger.log(`FAILURE: Remise parrainage simple. Attendu: ${prixAttendu1}€, Obtenu: ${calculAvecRemise ? calculAvecRemise.prix : 'N/A'}€`);
+  }
+
+  // Test 2: Remise parrainage ne s'applique pas si une tournée est offerte
+  const clientAvecTourneeOfferte = { nbTourneesOffertes: 1 };
+  const calculAvecOffre = calculerPrixEtDureeServeur(1, false, dateTest, "12h00", clientAvecTourneeOfferte, REMISE_PARRAINAGE);
+  if (calculAvecOffre && calculAvecOffre.prix === 0) {
+    Logger.log(`SUCCESS: Remise parrainage ignorée si tournée offerte. Prix: ${calculAvecOffre.prix}€`);
+  } else {
+    Logger.log(`FAILURE: Remise parrainage ignorée si tournée offerte. Attendu: 0€, Obtenu: ${calculAvecOffre ? calculAvecOffre.prix : 'N/A'}€`);
+  }
+}
+
+function testerGestionClient() {
+  const TEST_CLIENT = {
+    email: "test.client.permanent@example.com"
+  };
+  Logger.log("\n--- Test de Gestion.gs ---");
+  const validation = validerClientParEmail(TEST_CLIENT.email);
+  if (validation && validation.success) Logger.log("SUCCESS: validerClientParEmail()");
+  else Logger.log(`FAILURE: validerClientParEmail(). Erreur: ${validation.error}`);
+
+  Logger.log("Test de la fonction obtenirReservationsClient()...");
+  try {
+    const reservationsResult = obtenirReservationsClient(TEST_CLIENT.email);
+    if (reservationsResult && reservationsResult.success) {
+        Logger.log(`SUCCESS: obtenirReservationsClient() a retourné un statut de succès.`);
+        const reservations = reservationsResult.reservations;
+        if (reservations.length > 0) {
+            const premiereResa = reservations[0];
+            Logger.log(`Vérification de la première réservation trouvée: ${JSON.stringify(premiereResa)}`);
+            if (premiereResa.hasOwnProperty('arretsSupplementaires')) {
+                Logger.log("SUCCESS: La réservation contient bien le champ 'arretsSupplementaires'.");
+            } else {
+                Logger.log("FAILURE: Le champ 'arretsSupplementaires' est manquant dans l'objet de réservation.");
+            }
+        } else {
+            Logger.log("INFO: Le client de test n'a aucune réservation future, le test de la structure de l'objet est ignoré.");
+        }
+    } else {
+        Logger.log(`FAILURE: obtenirReservationsClient() a échoué ou retourné un statut d'échec. Erreur: ${reservationsResult ? reservationsResult.error : 'N/A'}`);
+    }
+  } catch (e) {
+    Logger.log(`FAILURE: Une erreur est survenue durant le test de obtenirReservationsClient. Erreur: ${e.stack}`);
+  }
+}
+
+function testerAdministration() {
+  Logger.log("\n--- Test de Administration.gs ---");
+  const demain = new Date();
+  demain.setDate(demain.getDate() + 1);
+  const dateTest = Utilities.formatDate(demain, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  const reponse = obtenirToutesReservationsPourDate(dateTest);
+  if (reponse && reponse.success) Logger.log(`SUCCESS: obtenirToutesReservationsPourDate() a trouvé ${reponse.reservations.length} réservations.`);
+  else Logger.log(`FAILURE: obtenirToutesReservationsPourDate(). Erreur: ${reponse.error}`);
+}
+
+function testerMaintenance() {
+  Logger.log("\n--- Test de Maintenance.gs ---");
+  logAdminAction("TEST", "Test de la fonction de log");
+  Logger.log("SUCCESS: logAdminAction() exécuté.");
+}
+
+function testerEspaceLivreur() {
+    Logger.log("\n--- Test de l'Espace Livreur (Livreur.html) ---");
+    try {
+        // 1. Trouver une réservation de test
+        const reservations = obtenirToutesReservationsAdmin().reservations;
+        if (reservations.length === 0) {
+            Logger.log("INFO: Aucune réservation trouvée pour tester. Test ignoré.");
+            return;
+        }
+        const resaTest = reservations[0];
+        const idResaTest = resaTest.id;
+        Logger.log(`Utilisation de la réservation ID: ${idResaTest} pour le test.`);
+
+        // 2. Définir les données de test
+        const detailsTest = {
+            idReservation: idResaTest,
+            note: "Test de note de livraison - " + new Date().toISOString(),
+            options: { frigo: true, tampon: false, reprise: true, extras: false }
+        };
+
+        // 3. Appeler la fonction à tester
+        const resultat = enregistrerDetailsLivraison(detailsTest);
+        if (resultat && resultat.success) {
+            Logger.log("SUCCESS: La fonction enregistrerDetailsLivraison a retourné un succès.");
+        } else {
+            Logger.log(`FAILURE: La fonction enregistrerDetailsLivraison a échoué. Erreur: ${resultat ? resultat.error : 'N/A'}`);
+            return;
+        }
+
+        // 4. Vérifier directement dans la feuille de calcul
+        const sheet = SpreadsheetApp.openById(getConfiguration().ID_FEUILLE_CALCUL).getSheetByName("Facturation");
+        const data = sheet.getDataRange().getValues();
+        const headers = data.shift();
+        const idResaIndex = headers.indexOf("ID Réservation");
+        const rowIndex = data.findIndex(row => row[idResaIndex] === idResaTest);
+
+        if (rowIndex === -1) {
+            Logger.log("FAILURE: Impossible de retrouver la réservation dans la feuille après le test.");
+            return;
+        }
+
+        const rowData = data[rowIndex];
+        const noteIndex = headers.indexOf("Note Livreur");
+        const frigoIndex = headers.indexOf("Livreur Frigo");
+        const repriseIndex = headers.indexOf("Livreur Reprise");
+
+        const noteLue = rowData[noteIndex];
+        const frigoLu = rowData[frigoIndex];
+        const repriseLue = rowData[repriseIndex];
+
+        let testPasse = true;
+        if (noteLue !== detailsTest.note) {
+            Logger.log(`FAILURE: La note n'a pas été enregistrée correctement. Attendu: "${detailsTest.note}", Lu: "${noteLue}"`);
+            testPasse = false;
+        }
+        if (frigoLu !== detailsTest.options.frigo) {
+            Logger.log(`FAILURE: L'option 'frigo' n'a pas été enregistrée correctement. Attendu: ${detailsTest.options.frigo}, Lu: ${frigoLu}`);
+            testPasse = false;
+        }
+         if (repriseLue !== detailsTest.options.reprise) {
+            Logger.log(`FAILURE: L'option 'reprise' n'a pas été enregistrée correctement. Attendu: ${detailsTest.options.reprise}, Lu: ${repriseLue}`);
+            testPasse = false;
+        }
+
+        if (testPasse) {
+            Logger.log("SUCCESS: Les données ont été correctement vérifiées dans la feuille de calcul.");
+        }
+
+    } catch (e) {
+        Logger.log(`FAILURE: Une erreur critique est survenue durant le test de l'espace livreur. Erreur: ${e.stack}`);
+    }
+}

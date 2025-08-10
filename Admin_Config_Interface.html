@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration de l'Application</title>
+  <?!= include('Admin_CSS'); ?>
+  <style>
+    .config-section {
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #eee;
+    }
+    .config-section h4 {
+      margin-bottom: 1rem;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+    .form-grid .groupe-formulaire {
+      display: flex;
+      flex-direction: column;
+    }
+  </style>
+</head>
+<body>
+  <div id="indicateur-chargement" class="indicateur-chargement-overlay">
+    <div class="spinner"></div>
+  </div>
+
+  <div id="app-conteneur-principal">
+    <header class="app-en-tete">
+      <?!= include('Logo'); ?>
+      <p>Configuration de l'application</p>
+    </header>
+
+    <main id="conteneur-app" class="carte">
+      <form id="config-form">
+        <div class="config-section">
+          <h4>Paramètres des Courses</h4>
+          <div class="groupe-formulaire">
+            <label for="delai-modification">Délai de modification client (minutes)</label>
+            <input type="number" id="delai-modification" name="delai_modification" class="champ-formulaire">
+            <small>Le client ne peut plus modifier sa course si le délai avant le début est inférieur à cette valeur.</small>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h4>Tarifs des arrêts supplémentaires</h4>
+          <p>Entrez le coût pour chaque arrêt supplémentaire. Le premier champ correspond au 1er arrêt, le second au 2ème, etc.</p>
+          <div id="tarifs-arrets-container" class="form-grid">
+            <!-- Les champs pour les tarifs des arrêts seront injectés ici -->
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+            <a href="<?= ScriptApp.getService().getUrl().replace('dev', 'user') ?>?page=admin" class="btn btn-secondaire">Retour au tableau de bord</a>
+            <button type="submit" id="btn-sauvegarder" class="btn btn-primaire">Sauvegarder les modifications</button>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <div id="conteneur-notifications"></div>
+
+  <script>
+    const indicateurChargement = document.getElementById('indicateur-chargement');
+    const formulaire = document.getElementById('config-form');
+    const delaiModificationInput = document.getElementById('delai-modification');
+    const tarifsContainer = document.getElementById('tarifs-arrets-container');
+    const btnSauvegarder = document.getElementById('btn-sauvegarder');
+    const conteneurNotifications = document.getElementById('conteneur-notifications');
+
+    let configData = null;
+
+    function afficherNotification(message, type = 'succes') {
+        const notif = document.createElement('div');
+        notif.className = `notification notification-${type}`;
+        notif.textContent = message;
+        conteneurNotifications.appendChild(notif);
+        setTimeout(() => notif.remove(), 5000);
+    }
+
+    function populerFormulaire(config) {
+      configData = config;
+      delaiModificationInput.value = config.DELAI_MODIFICATION_MINUTES;
+
+      // Pour simplifier, nous modifions seulement les tarifs du type 'Normal'.
+      // L'étendre à d'autres types serait une amélioration future.
+      tarifsContainer.innerHTML = '';
+      const tarifsNormaux = config.TARIFS['Normal'].arrets;
+
+      tarifsNormaux.forEach((tarif, index) => {
+        const id = `tarif-arret-${index}`;
+        const html = `
+          <div class="groupe-formulaire">
+            <label for="${id}">Arrêt N°${index + 1} (€)</label>
+            <input type="number" id="${id}" class="champ-formulaire tarif-arret-input" value="${tarif}" step="0.5">
+          </div>
+        `;
+        tarifsContainer.innerHTML += html;
+      });
+    }
+
+    function chargerConfiguration() {
+      indicateurChargement.classList.remove('hidden');
+      google.script.run
+        .withSuccessHandler(config => {
+          populerFormulaire(config);
+          indicateurChargement.classList.add('hidden');
+        })
+        .withFailureHandler(err => {
+          afficherNotification("Erreur: " + err.message, 'erreur');
+          indicateurChargement.classList.add('hidden');
+        })
+        .getAdminConfiguration();
+    }
+
+    function sauvegarderConfiguration(e) {
+      e.preventDefault();
+      indicateurChargement.classList.remove('hidden');
+      btnSauvegarder.disabled = true;
+
+      const newConfig = {
+        DELAI_MODIFICATION_MINUTES: parseInt(delaiModificationInput.value, 10),
+        TARIFS: { ...configData.TARIFS } // Copie de l'objet tarifs existant
+      };
+
+      const nouveauxTarifsArrets = Array.from(document.querySelectorAll('.tarif-arret-input')).map(input => parseFloat(input.value));
+
+      // On met à jour seulement les tarifs 'Normal' pour l'instant
+      newConfig.TARIFS['Normal'].arrets = nouveauxTarifsArrets;
+
+      google.script.run
+        .withSuccessHandler(response => {
+          if (response.success) {
+            afficherNotification(response.message, 'succes');
+            // Re-populer le formulaire avec les nouvelles données pour confirmer
+            chargerConfiguration();
+          } else {
+            afficherNotification(response.message, 'erreur');
+          }
+          indicateurChargement.classList.add('hidden');
+          btnSauvegarder.disabled = false;
+        })
+        .withFailureHandler(err => {
+          afficherNotification("Erreur: " + err.message, 'erreur');
+          indicateurChargement.classList.add('hidden');
+          btnSauvegarder.disabled = false;
+        })
+        .saveConfiguration(newConfig);
+    }
+
+    document.addEventListener('DOMContentLoaded', chargerConfiguration);
+    formulaire.addEventListener('submit', sauvegarderConfiguration);
+  </script>
+</body>
+</html>

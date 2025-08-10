@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Espace Livreur</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <?!= include('Livreur_CSS'); ?>
+</head>
+<body>
+
+  <div id="indicateur-chargement" class="indicateur-chargement-overlay hidden">
+    <div class="spinner"></div>
+  </div>
+
+  <header class="app-en-tete">
+    <p>Espace Livreur</p>
+  </header>
+
+  <div class="conteneur-principal">
+    <div class="carte barre-outils">
+      <label for="date-livraison">Afficher les courses pour le :</label>
+      <input type="date" id="date-livraison" class="champ-formulaire">
+    </div>
+
+    <main id="contenu-reservations">
+      <!-- Les réservations seront injectées ici par le script JS -->
+    </main>
+  </div>
+
+  <div id="conteneur-notifications"></div>
+
+  <?!= include('Livreur_JS'); ?>
+</body>
+</html>

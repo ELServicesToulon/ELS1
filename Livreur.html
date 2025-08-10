@@ -1,0 +1,75 @@
+/**
+ * =================================================================
+ *                      LOGIQUE DE L'ESPACE LIVREUR
+ * =================================================================
+ */
+
+/**
+ * Récupère les réservations pour un livreur pour une date donnée.
+ * Pour l'instant, retourne les mêmes données que pour l'admin.
+ * @param {string} dateString La date au format YYYY-MM-DD.
+ * @returns {Object} Un objet contenant les réservations.
+ */
+function getReservationsPourLivreur(dateString) {
+    // Pour l'instant, on réutilise la même fonction que l'admin.
+    // On pourra la spécialiser plus tard si besoin.
+    return obtenirToutesReservationsPourDate(dateString);
+}
+
+/**
+ * Enregistre les détails de livraison (note, options) pour une réservation.
+ * @param {Object} details - Un objet contenant {idReservation, note, options: {frigo, tampon, reprise, extras}}.
+ * @returns {Object} Un objet indiquant le succès de l'opération.
+ */
+function enregistrerDetailsLivraison(details) {
+    const { idReservation, note, options } = details;
+
+    if (!idReservation) {
+        return { success: false, error: "ID de réservation manquant." };
+    }
+
+    try {
+        const ss = SpreadsheetApp.openById(getConfiguration().ID_FEUILLE_CALCUL);
+        const sheet = ss.getSheetByName("Facturation");
+        if (!sheet) {
+            throw new Error("La feuille 'Facturation' est introuvable.");
+        }
+
+        const data = sheet.getDataRange().getValues();
+        const headers = data.shift();
+
+        const indices = {
+            idResa: headers.indexOf("ID Réservation"),
+            note: headers.indexOf("Note Livreur"),
+            frigo: headers.indexOf("Livreur Frigo"),
+            tampon: headers.indexOf("Livreur Tampon"),
+            reprise: headers.indexOf("Livreur Reprise"),
+            extras: headers.indexOf("Livreur Extras")
+        };
+
+        const missingHeaders = Object.entries(indices).filter(([key, value]) => value === -1).map(([key]) => key);
+        if (missingHeaders.length > 0) {
+            throw new Error(`Colonnes manquantes dans la feuille 'Facturation': ${missingHeaders.join(', ')}`);
+        }
+
+        const rowIndex = data.findIndex(row => row[indices.idResa] === idReservation);
+
+        if (rowIndex === -1) {
+            return { success: false, error: "Réservation introuvable." };
+        }
+
+        const rowToUpdate = rowIndex + 2; // +1 for headers, +1 for 0-based index
+
+        sheet.getRange(rowToUpdate, indices.note + 1).setValue(note || '');
+        sheet.getRange(rowToUpdate, indices.frigo + 1).setValue(options.frigo || false);
+        sheet.getRange(rowToUpdate, indices.tampon + 1).setValue(options.tampon || false);
+        sheet.getRange(rowToUpdate, indices.reprise + 1).setValue(options.reprise || false);
+        sheet.getRange(rowToUpdate, indices.extras + 1).setValue(options.extras || false);
+
+        return { success: true };
+
+    } catch (e) {
+        Logger.log(`Erreur dans enregistrerDetailsLivraison : ${e.stack}`);
+        return { success: false, error: e.message };
+    }
+}

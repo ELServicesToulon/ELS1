@@ -1,0 +1,230 @@
+<script>
+/**
+ * =================================================================
+ * MODULE JAVASCRIPT - GESTION DU PANIER ET PARRAINAGE
+ * =================================================================
+ * Description: Gère l'ajout/suppression d'articles, le calcul du
+ * total, et la logique de validation du code de parrainage.
+ */
+
+// --- STATE GLOBAL POUR LE PARRAINAGE ---
+// Cet objet conservera l'état du code de parrainage appliqué.
+let parrainageApplique = {
+  code: null,
+  remise: 0
+};
+
+
+/**
+ * Ajoute la tournée configurée au panier global.
+ */
+function ajouterTourneeAuPanier() {
+  const { ui } = window;
+  const { tourneeEnCours } = window.etat;
+  const creneauSelectionneBtn = ui.grilleSelectionCreneau.querySelector('.slot-btn.selected');
+  const estRecurrent = document.getElementById('interrupteur-recurrence').checked;
+
+  if (!creneauSelectionneBtn) {
+    afficherNotification("Veuillez sélectionner un créneau.", "erreur");
+    return;
+  }
+
+  const nouvelleTournee = {
+    id: 'tournee-' + Date.now(),
+    date: tourneeEnCours.date,
+    startTime: creneauSelectionneBtn.dataset.creneau,
+    totalStops: tourneeEnCours.totalStops,
+    returnToPharmacy: tourneeEnCours.returnToPharmacy,
+    prix: parseFloat(creneauSelectionneBtn.dataset.prix),
+    duree: tourneeEnCours.duree,
+    details: `Tournée de ${tourneeEnCours.duree}min (${Math.max(0, tourneeEnCours.totalStops - 1)} arrêt(s) sup., retour: ${tourneeEnCours.returnToPharmacy ? 'oui' : 'non'})`,
+    isRecurrent: estRecurrent
+  };
+
+  window.etat.panier.push(nouvelleTournee);
+  
+  afficherPanier(); // Met à jour l'affichage, y compris le total avec remise
+  sauvegarderPanierDansLocalStorage();
+  
+  ui.modaleSelectionCreneau.classList.add('hidden');
+  afficherNotification("Tournée ajoutée au panier !", "succes");
+}
+
+/**
+ * Confirme et ajoute une tournée récurrente au panier.
+ * Gère la soumission depuis la modale de confirmation de récurrence.
+ */
+function confirmerEtAjouterRecurrenceAuPanier() {
+  ajouterTourneeAuPanier();
+
+  const modaleRecurrence = document.getElementById('modale-confirmation-recurrence');
+  if (modaleRecurrence) {
+    modaleRecurrence.classList.add('hidden');
+  }
+}
+
+/**
+ * Met à jour l'affichage du panier dans l'interface.
+ * MODIFIÉ pour inclure la remise de parrainage dans le calcul du total.
+ */
+function afficherPanier() {
+  const { ui } = window;
+  const { panier } = window.etat;
+
+  // Vider les anciens messages de remise
+  const parentTotal = ui.panierTotalValeur.parentNode;
+  const ancienMessage = parentTotal.querySelector('.message-remise-parrainage');
+  if (ancienMessage) {
+    ancienMessage.remove();
+  }
+
+  if (panier.length === 0) {
+    ui.listePanier.innerHTML = '<p class="panier-vide">Votre panier est vide.</p>';
+    ui.panierPiedDePage.classList.add('hidden');
+    return;
+  }
+
+  ui.listePanier.innerHTML = panier.map(item => {
+    const date = new Date(item.date + 'T00:00:00');
+    const dateFormatee = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+    const recurrenceInfo = item.isRecurrent ? '<small style="color: #6a0dad; display: block;">(Récurrence mensuelle)</small>' : '';
+    
+    return `
+      <li class="item-panier" data-id-item="${item.id}">
+        <div class="item-panier-infos">
+          <strong>Le ${dateFormatee} à ${item.startTime}</strong>
+          ${recurrenceInfo}
+          <small>${item.details}</small>
+        </div>
+        <div class="item-panier-actions">
+            <span class="item-panier-prix">${item.prix.toFixed(2)} €</span>
+            <button class="item-panier-supprimer" aria-label="Supprimer cet article">&times;</button>
+        </div>
+      </li>
+    `;
+  }).join('');
+
+  const totalBrut = panier.reduce((acc, item) => acc + item.prix, 0);
+  ui.panierTotalValeur.textContent = `${totalBrut.toFixed(2)} €`;
+
+  if (parrainageApplique.code) {
+      const messageRemise = document.createElement('small');
+      messageRemise.className = 'message-remise-parrainage'; // Pour pouvoir le retrouver
+      messageRemise.style.color = 'green';
+      messageRemise.style.display = 'block';
+      messageRemise.style.marginTop = '4px';
+      messageRemise.textContent = 'Une remise sera appliquée sur le total final.';
+      parentTotal.appendChild(messageRemise);
+  }
+
+  ui.panierPiedDePage.classList.remove('hidden');
+}
+
+/**
+ * Gère les actions dans le panier (ex: suppression d'un item).
+ */
+function gererActionsPanier(e) {
+  if (e.target.classList.contains('item-panier-supprimer')) {
+    const itemId = e.target.closest('.item-panier').dataset.idItem;
+    window.etat.panier = window.etat.panier.filter(item => item.id !== itemId);
+    afficherPanier(); // Recalcule le total
+    sauvegarderPanierDansLocalStorage();
+    afficherNotification("Tournée retirée du panier.", "info");
+  }
+}
+
+/**
+ * Sauvegarde le panier dans le localStorage du navigateur.
+ */
+function sauvegarderPanierDansLocalStorage() {
+  localStorage.setItem('panierReservationELS', JSON.stringify(window.etat.panier));
+}
+
+/**
+ * Charge le panier depuis le localStorage au démarrage de l'application.
+ */
+function chargerPanierDepuisLocalStorage() {
+  const panierSauvegarde = localStorage.getItem('panierReservationELS');
+  if (panierSauvegarde) {
+    window.etat.panier = JSON.parse(panierSauvegarde);
+    afficherPanier();
+  }
+}
+
+/**
+ * =================================================================
+ * INITIALISATION ET LOGIQUE DU PARRAINAGE
+ * =================================================================
+ */
+function initialiserLogiqueParrainage() {
+    const codeInput = document.getElementById('code-parrainage-input');
+    const validateBtn = document.getElementById('valider-code-parrainage-btn');
+    const messageDiv = document.getElementById('parrainage-message');
+    const emailClientInput = document.getElementById('client-email');
+
+    if (!validateBtn) return; // Si l'élément n'est pas sur la page, on ne fait rien
+
+    validateBtn.addEventListener('click', validerCode);
+    // Permet de valider aussi en appuyant sur "Entrée"
+    codeInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            validerCode();
+        }
+    });
+
+    function validerCode() {
+        const codeSaisi = codeInput.value.trim().toUpperCase();
+        const emailClient = emailClientInput.value.trim();
+
+        if (!codeSaisi) {
+            afficherMessage("Veuillez saisir un code.", "error");
+            return;
+        }
+        if (!emailClient) {
+            afficherMessage("Veuillez d'abord renseigner votre email.", "error");
+            emailClientInput.focus();
+            return;
+        }
+
+        afficherMessage('Vérification en cours...', 'loading');
+        validateBtn.disabled = true;
+        codeInput.disabled = true;
+
+        google.script.run
+            .withSuccessHandler(onValidationSuccess)
+            .withFailureHandler(onValidationFailure)
+            .verifierCodeParrainage(codeSaisi, emailClient);
+    }
+
+    function onValidationSuccess(response) {
+        afficherMessage(response.message, response.isValid ? 'success' : 'error');
+
+        if (response.isValid) {
+            parrainageApplique.code = codeInput.value.trim().toUpperCase();
+            parrainageApplique.remise = 0; // Sécurité: ne jamais stocker la remise côté client
+            validateBtn.style.display = 'none';
+            codeInput.readOnly = true;
+            afficherPanier(); // Mettre à jour l'affichage pour montrer que le code est pris en compte
+        } else {
+            parrainageApplique.code = null; // Réinitialiser en cas d'erreur
+            validateBtn.disabled = false;
+            codeInput.disabled = false;
+        }
+    }
+
+    function onValidationFailure(error) {
+        afficherMessage("Erreur de communication. Veuillez réessayer.", "error");
+        validateBtn.disabled = false;
+        codeInput.disabled = false;
+        console.error('Erreur Apps Script:', error.message);
+    }
+    
+    function afficherMessage(texte, type) {
+        messageDiv.textContent = texte;
+        messageDiv.className = `message-area ${type} visible`;
+    }
+}
+</script>
+
+

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><?= nomService ?> | Réservation de Livraison</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <?!= include('Reservation_CSS'); ?>
+  <style>
+    .page-container {
+      max-width: 950px;
+      margin: 0 auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .calendar-wrapper,
+    .panier-wrapper {
+      width: 100%;
+      margin-top: 24px;
+      background: #fff;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+    @media (max-width: 768px) {
+      .calendar-wrapper,
+      .panier-wrapper {
+        padding: 16px 12px;
+      }
+    }
+
+    /* --- Styles pour la section Parrainage --- */
+    .parrainage-container {
+      background-color: #f0f8ff;
+      border: 1px solid #bde0fe;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    .parrainage-container h3 { color: #0369a1; margin-top: 0; font-weight: 600; }
+    .parrainage-subtitle { font-size: 0.9em; color: #555; margin-bottom: 15px; max-width: 450px; margin-left: auto; margin-right: auto; }
+    .parrainage-container .input-group { display: flex; justify-content: center; max-width: 400px; margin: 0 auto; }
+    .parrainage-container input[type="text"] { border: 1px solid #ccc; padding: 10px; border-radius: 8px 0 0 8px; flex-grow: 1; text-align: center; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
+    .parrainage-container .input-group button { border-radius: 0 8px 8px 0; font-weight: 600; }
+    .message-area { margin-top: 15px; font-weight: bold; padding: 10px; border-radius: 8px; display: none; transition: all 0.3s ease-in-out; }
+    .message-area.visible { display: block; }
+    .message-area.success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
+    .message-area.error { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
+    .message-area.loading { color: #0c5460; background-color: #d1ecf1; border: 1px solid #bee5eb; }
+
+    /* --- NOUVEAUX STYLES POUR LA SECTION DESTINATAIRE --- */
+    .destinataire-section {
+      border-top: 1px solid #e5e7eb;
+      margin-top: 2rem;
+      padding-top: 2rem;
+    }
+    #formulaire-destinataire {
+      display: none; /* Caché par défaut */
+      background-color: #fafafa;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 1rem;
+    }
+    .radio-group {
+      display: flex;
+      gap: 2rem;
+      margin-top: 1rem;
+    }
+    .radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+    }
+
+    /* --- STYLES AJOUTÉS POUR LES CRÉNEAUX --- */
+    .aucun-creneau {
+        padding: 20px;
+        text-align: center;
+        color: #6c757d;
+    }
+    .btn-creneau.desactive {
+        background-color: #e9ecef;
+        color: #adb5bd;
+        cursor: not-allowed;
+        border-color: #dee2e6;
+        box-shadow: none;
+        text-decoration: line-through;
+    }
+    .btn-creneau.desactive:hover {
+        background-color: #e9ecef;
+        transform: none;
+    }
+
+  </style>
+</head>
+<body>
+
+  <script>
+    // Objet de configuration injecté par le serveur
+    const configServeur = {
+      appUrl: "<?= appUrl ?>",
+      nomService: "<?= nomService ?>",
+      TARIFS: JSON.parse('<?= TARIFS_JSON ?>'),
+      DUREE_BASE: <?= DUREE_BASE ?>,
+      DUREE_ARRET_SUP: <?= DUREE_ARRET_SUP ?>,
+      KM_BASE: <?= KM_BASE ?>,
+      KM_ARRET_SUP: <?= KM_ARRET_SUP ?>,
+      URGENT_THRESHOLD_MINUTES: <?= URGENT_THRESHOLD_MINUTES || 45 ?>,
+      dateDuJour: "<?= dateDuJour ?>"
+    };
+  </script>
+
+  <div id="indicateur-chargement" class="indicateur-chargement-overlay hidden" role="status" aria-live="polite">
+    <div class="spinner"></div>
+  </div>
+
+  <div id="app-conteneur-principal">
+    
+    <header class="app-en-tete">
+        <?!= include('Logo'); ?>
+        <p>Système de réservation de tournées</p>
+        <div id="banniere-client-reconnu" class="hidden">
+            Content de vous revoir, <strong id="nom-client-reconnu"></strong> !
+            <button id="btn-changer-client" class="btn btn-sm">Changer de client</button>
+        </div>
+        <a href="<?= appUrl ?>?page=gestion" class="btn btn-secondaire btn-espace-client">Mon Espace Client</a>
+    </header>
+
+    <!-- SECTION D'INFORMATION -->
+    <div class="reservation-wrapper" style="font-family: Montserrat, Arial, sans-serif; background: linear-gradient(135deg, #8e44ad, #5dade2); color: #fff; border-radius: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15); padding: 30px 20px; max-width: 950px; margin: auto; text-align: center;">
+      <h2>Réservez vos tournées pro en 1 clic sur<br>
+        <span style="color: #ffffffcc;">Tamaris, Mar Vivo, Six-Fours, Portissol, Bandol</span>
+      </h2>
+      <p>Tarifs et options toujours à jour, ajustables selon vos besoins.</p>
+      <div class="reservation-columns" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; margin-top: 25px; margin-bottom: 20px;">
+        <div class="reservation-box" style="background: rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px 16px; flex: 1 1 260px; min-width: 250px; max-width: 300px; text-align: center;">
+          <h3>📦 Course de base</h3>
+          <p>15 € net</p><p>9 km inclus</p><p>~30 min</p><p><strong>1<sup>er</sup> arrêt inclus</strong></p>
+        </div>
+        <div class="reservation-box" style="background: rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px 16px; flex: 1 1 260px; min-width: 250px; max-width: 300px; text-align: center;">
+          <h3>➕ Arrêts supplémentaires</h3>
+          <ul style="list-style: none; padding: 0;"><li>2<sup>e</sup> arrêt : 5 €</li><li>3<sup>e</sup> arrêt : 3 €</li><li>4<sup>e</sup> arrêt : 4 €</li><li>À partir du 5<sup>e</sup> : 5 €/arrêt</li></ul>
+        </div>
+        <div class="reservation-box" style="background: rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px 16px; flex: 1 1 260px; min-width: 250px; max-width: 300px; text-align: center;">
+          <h3>📅 Options</h3>
+          <p><strong>Samedi</strong> : dès 25 € net</p><p><strong>Urgent</strong> : départ sous 30 min (selon dispo), dès 20 € net</p>
+        </div>
+      </div>
+      <div class="reservation-footer" style="margin-top: 18px; font-size: 0.95em; color: #e6f4fa;">
+        <p><strong>TVA non applicable (art. 293 B CGI)</strong></p>
+        <p>Tarifs et forfaits modulables à tout moment par l’administrateur.</p>
+        <p>📦 Traçabilité & sécurité garanties – 📬 Confirmation et facture immédiates</p>
+        <p>(CGV, documents officiels et conditions accessibles à tout moment)</p>
+        <p>📧 Contact : <a href="mailto:elservicetoulon@gmail.com" style="color: #ffffff; text-decoration: underline;">elservicetoulon@gmail.com</a></p>
+      </div>
+    </div>
+
+    <main id="app-conteneur">
+      <div id="vue-calendrier" role="application" aria-roledescription="calendrier interactif" class="carte">
+        <div class="carte-en-tete">
+          <button id="btn-mois-precedent" class="btn-icone" aria-label="Mois précédent">&#9664;</button>
+          <h2 id="titre-calendrier" aria-live="polite"></h2>
+          <button id="btn-mois-suivant" class="btn-icone" aria-label="Mois suivant">&#9654;</button>
+        </div>
+        <div class="calendrier-jours-semaine" aria-hidden="true">
+          <div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
+        </div>
+        <div id="grille-calendrier" class="grille-calendrier"></div>
+      </div>
+
+      <div id="colonne-droite">
+        <aside id="vue-panier" aria-labelledby="panier-titre" class="carte">
+          <h3 id="panier-titre">Panier de réservation</h3>
+          <ul id="liste-panier">
+            <p class="panier-vide">Votre panier est vide.</p>
+          </ul>
+          <div id="panier-pied-de-page" class="hidden">
+            <div class="panier-total">
+              <span>Total estimé</span>
+              <strong id="panier-total-valeur">0 €</strong>
+            </div>
+            <div class="panier-actions-groupe">
+                <button id="btn-envoyer-devis" class="btn btn-secondaire">Recevoir un devis</button>
+                <button id="btn-valider-panier" class="btn btn-primaire">Valider le panier</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <div id="conteneur-finalisation" class="carte hidden" style="margin-top: 2rem;">
+        <h3>Finaliser la réservation</h3>
+        <form id="formulaire-reservation">
+            
+            <div class="parrainage-container">
+              <h3>Vous avez un code de parrainage ?</h3>
+              <p class="parrainage-subtitle">Exclusif pour les professionnels, saisissez-le pour bénéficier d'une remise immédiate sur votre première réservation !</p>
+              <div class="input-group">
+                <input type="text" id="code-parrainage-input" placeholder="Ex: PHARMA-A1B2C3">
+                <button type="button" id="valider-code-parrainage-btn" class="btn btn-secondaire">Valider</button>
+              </div>
+              <div id="parrainage-message" class="message-area"></div>
+            </div>
+
+            <h4>Informations Client (Pharmacie)</h4>
+            <div class="groupe-formulaire"><label for="client-email">Email</label><input type="email" id="client-email" required></div>
+            <div class="groupe-formulaire"><label for="client-nom">Raison Sociale</label><input type="text" id="client-nom" required></div>
+            <div class="groupe-formulaire"><label for="client-adresse">Adresse</label><input type="text" id="client-adresse"></div>
+            <div class="groupe-formulaire"><label for="client-siret">SIRET</label><input type="text" id="client-siret"></div>
+            <div class="groupe-formulaire"><label for="note-reservation">Note (optionnel)</label><textarea id="note-reservation"></textarea></div>
+            
+            <!-- =================================================================
+                 NOUVELLE SECTION POUR LE DESTINATAIRE
+                 ================================================================== -->
+            <div class="destinataire-section">
+                <div class="groupe-formulaire conteneur-interrupteur">
+                    <label for="interrupteur-destinataire">Cette livraison est pour un résident ou un particulier ?</label>
+                    <label class="interrupteur"><input type="checkbox" id="interrupteur-destinataire"><span class="glissiere"></span></label>
+                </div>
+
+                <div id="formulaire-destinataire">
+                    <h4>Informations du Destinataire</h4>
+                    <div class="groupe-formulaire">
+                        <label for="destinataire-nom">Nom complet du destinataire</label>
+                        <input type="text" id="destinataire-nom" placeholder="Ex: Jean Dupont">
+                    </div>
+                    <div class="groupe-formulaire">
+                        <label for="destinataire-adresse">Adresse de livraison</label>
+                        <input type="text" id="destinataire-adresse" placeholder="Ex: 10 Rue de la Paix, 83000 Toulon">
+                    </div>
+                    <div class="groupe-formulaire">
+                        <label for="destinataire-email">Email du destinataire (pour la facture)</label>
+                        <input type="email" id="destinataire-email" placeholder="Optionnel">
+                    </div>
+                    
+                    <h4>Qui sera facturé pour cette livraison ?</h4>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="facturation" value="client" checked>
+                            La Pharmacie (moi)
+                        </label>
+                        <label>
+                            <input type="radio" name="facturation" value="destinataire">
+                            Le Destinataire
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <!-- ================================================================= -->
+
+            <div class="modale-pied-de-page" style="margin-top: 2rem;">
+                <button type="button" id="btn-annuler-reservation" class="btn btn-secondaire">Annuler</button>
+                <button type="submit" class="btn btn-primaire">Confirmer la réservation</button>
+            </div>
+        </form>
+    </div>
+  </div>
+
+  <!-- MODALES EXISTANTES (INCHANGÉES) -->
+  <div id="modale-config-tournee" class="modale-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modale-config-titre">
+    <div class="modale-contenu">
+      <button id="btn-fermer-config-tournee" class="btn-fermer" aria-label="Fermer la fenêtre de configuration">&times;</button>
+      <h3 id="modale-config-titre"></h3>
+      <form id="formulaire-config-tournee">
+        <div class="groupe-formulaire">
+            <label>Nombre total d'arrêts (livraison initiale incluse) :</label>
+            <div class="champ-compteur">
+                <button type="button" id="btn-retirer-arret" class="btn-compteur" aria-label="Retirer un arrêt">-</button>
+                <span id="valeur-arrets-sup" class="valeur-compteur">1</span>
+                <button type="button" id="btn-ajouter-arret" class="btn-compteur" aria-label="Ajouter un arrêt">+</button>
+            </div>
+        </div>
+        <div class="groupe-formulaire conteneur-interrupteur">
+            <label for="interrupteur-retour">Retour à la pharmacie</label>
+            <label class="interrupteur"><input type="checkbox" id="interrupteur-retour"><span class="glissiere"></span></label>
+        </div>
+        <div id="resume-config-tournee" class="modale-resume"></div>
+        <div class="modale-pied-de-page">
+            <button type="submit" class="btn btn-primaire">Voir les créneaux</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div id="modale-selection-creneau" class="modale-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modale-selection-titre">
+      <div class="modale-contenu">
+          <button id="btn-fermer-selection-creneau" class="btn-fermer" aria-label="Fermer la fenêtre de sélection">&times;</button>
+          <h3 id="modale-selection-titre">Sélectionner un créneau</h3>
+          <div id="grille-selection-creneau" class="grille-selection-creneau"></div>
+          <div class="groupe-formulaire conteneur-interrupteur" style="margin-top: 1rem;">
+              <label for="interrupteur-recurrence">Réserver pour tous les [jour de la semaine] de ce mois</label>
+              <label class="interrupteur"><input type="checkbox" id="interrupteur-recurrence"><span class="glissiere"></span></label>
+          </div>
+          <div class="modale-resume" style="margin-top: 1rem;">
+              <div id="recap-creneau-heure">--:--</div>
+              <div id="recap-creneau-tarif">--</div>
+              <strong id="recap-creneau-prix">--.-- €</strong>
+          </div>
+          <div class="modale-pied-de-page">
+              <button type="button" id="btn-modifier-tournee" class="btn btn-secondaire">Modifier la tournée</button>
+              <button type="button" id="btn-ajouter-au-panier" class="btn btn-primaire" disabled>Ajouter au panier</button>
+          </div>
+      </div>
+  </div>
+  <div id="modale-confirmation-recurrence" class="modale-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modale-recurrence-titre">
+      <div class="modale-contenu">
+          <button id="btn-fermer-confirmation-recurrence" class="btn-fermer" aria-label="Fermer">&times;</button>
+          <h3 id="modale-recurrence-titre">Confirmer les dates récurrentes</h3>
+          <p>Veuillez vérifier les créneaux pour votre réservation récurrente. Les conflits ont été ajustés au plus proche.</p>
+          <ul id="liste-recurrence-details" class="liste-recurrence"></ul>
+          <div class="modale-pied-de-page">
+              <button type="button" id="btn-annuler-recurrence" class="btn btn-secondaire">Annuler</button>
+              <button type="button" id="btn-confirmer-recurrence" class="btn btn-primaire">Confirmer et Ajouter</button>
+          </div>
+      </div>
+  </div>
+  <div id="modale-email-devis" class="modale-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modale-devis-titre">
+      <div class="modale-contenu">
+          <button id="btn-fermer-email-devis" class="btn-fermer" aria-label="Fermer">&times;</button>
+          <h3 id="modale-devis-titre">Recevoir votre devis</h3>
+          <p>Veuillez saisir votre adresse e-mail pour recevoir le devis détaillé.</p>
+          <form id="formulaire-email-devis">
+              <div class="groupe-formulaire">
+                  <label for="email-pour-devis">Adresse e-mail</label>
+                  <input type="email" id="email-pour-devis" required>
+              </div>
+              <div class="modale-pied-de-page">
+                  <button type="submit" class="btn btn-primaire">Envoyer le devis</button>
+              </div>
+          </form>
+      </div>
+  </div>
+
+  <div id="conteneur-notifications" role="alert" aria-live="assertive"></div>
+  
+  <script>
+    /**
+     * =================================================================
+     * MODULE JAVASCRIPT - AFFICHAGE DES CRÉNEAUX (Logique Corrigée)
+     * =================================================================
+     */
+
+    /**
+     * Affiche les créneaux horaires dans la modale, en désactivant ceux qui sont passés.
+     * @param {string[]} creneauxDisponibles Tableau des créneaux disponibles (ex: ["09h00", "09h15"]).
+     */
+    function afficherCreneaux(creneauxDisponibles) {
+        const { grilleSelectionCreneau } = window.ui;
+        const { dateSelectionnee } = window.etat; // Format attendu: "YYYY-MM-DD"
+
+        if (!grilleSelectionCreneau || !dateSelectionnee) {
+            console.error("Impossible d'afficher les créneaux : élément UI ou date manquants.");
+            afficherErreur("Une erreur technique est survenue lors de l'affichage des créneaux.");
+            return;
+        }
+
+        grilleSelectionCreneau.innerHTML = '';
+        const maintenant = new Date();
+
+        if (!creneauxDisponibles || creneauxDisponibles.length === 0) {
+            grilleSelectionCreneau.innerHTML = '<p class="aucun-creneau">Aucun créneau disponible pour cette journée.</p>';
+            return;
+        }
+
+        // --- DÉBUT DE LA CORRECTION ---
+        // On décompose la date YYYY-MM-DD pour créer un objet Date de manière fiable,
+        // ce qui évite les problèmes de fuseau horaire des navigateurs.
+        const [annee, mois, jour] = dateSelectionnee.split('-').map(Number);
+        // --- FIN DE LA CORRECTION ---
+
+        creneauxDisponibles.forEach(heureStr => {
+            const creneauEl = document.createElement('button');
+            creneauEl.type = 'button';
+            creneauEl.className = 'btn-creneau';
+            creneauEl.textContent = heureStr.replace('h', ':');
+            creneauEl.dataset.heure = heureStr;
+
+            const [heures, minutes] = heureStr.split('h').map(Number);
+            
+            // --- DÉBUT DE LA CORRECTION ---
+            // On construit la date du créneau en utilisant les composants décomposés.
+            // new Date(année, mois - 1, jour, heures, minutes) utilise le fuseau horaire local du client.
+            const dateCreneau = new Date(annee, mois - 1, jour, heures, minutes);
+            // --- FIN DE LA CORRECTION ---
+
+            // La logique de comparaison est maintenant fiable.
+            if (dateCreneau < maintenant) {
+                creneauEl.disabled = true;
+                creneauEl.classList.add('desactive');
+                creneauEl.title = 'Créneau expiré';
+            }
+
+            grilleSelectionCreneau.appendChild(creneauEl);
+        });
+    }
+  </script>
+
+  <?!= include('Reservation_JS_UI'); ?>
+  <?!= include('Reservation_JS_UI_Elements'); ?>
+  <?!= include('Reservation_JS_Calendrier'); ?>
+  <?!= include('Reservation_JS_Panier'); ?>
+  <?!= include('Reservation_JS_Client'); ?>
+  <?!= include('Reservation_JS_Tournee'); ?>
+  <?!= include('Reservation_JS_Reservation'); ?>
+  <?!= include('Reservation_JS_Principal'); ?>
+
+</body>
+</html>
