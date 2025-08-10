@@ -23,16 +23,17 @@ function demanderLienDeConnexion(email) {
 
   try {
     const token = 'CLIENT_TOKEN_' + Utilities.getUuid();
-    // Stocker le token avec l'e-mail du client pour une durée limitée (ex: 15 minutes)
-    CacheService.getScriptCache().put(token, email, 900);
+    // Stocker le token avec l'e-mail du client pour une durée limitée
+    const cacheDurationSeconds = CONFIG.DUREE_TAMPON_MINUTES * 60;
+    CacheService.getScriptCache().put(token, email, cacheDurationSeconds);
 
     const url = ScriptApp.getService().getUrl() + '?page=gestion&token=' + token;
     const nomClient = client.nom || 'Client';
     const sujet = `Votre lien de connexion à votre espace client - ${CONFIG.NOM_ENTREPRISE}`;
     const corps = `
       <p>Bonjour ${nomClient},</p>
-      <p>Pour accéder à votre espace client et gérer vos réservations, veuillez cliquer sur le lien ci-dessous. Ce lien est valable 15 minutes.</p>
-      <p><a href="${url}" style="padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Accéder à mon espace client</a></p>
+      <p>Pour accéder à votre espace client et gérer vos réservations, veuillez cliquer sur le lien ci-dessous. Ce lien est valable ${CONFIG.DUREE_TAMPON_MINUTES} minutes.</p>
+      <p><a href="${url}" style="padding: 10px 15px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px;">Accéder à mon espace client</a></p>
       <p>Si vous n'êtes pas à l'origine de cette demande, veuillez ignorer cet e-mail.</p>
       <p>L'équipe ${CONFIG.NOM_ENTREPRISE}</p>
     `;

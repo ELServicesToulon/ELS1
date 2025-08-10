@@ -17,7 +17,16 @@ function reserverPanier(donneesReservation) {
   }
 
   try {
-    const client = donneesReservation.client;
+    // --- Correction de sécurité : Toujours utiliser l'e-mail de la session pour l'identité du client ---
+    const userEmail = Session.getActiveUser().getEmail();
+    if (!userEmail) {
+        return { success: false, summary: "Impossible d'identifier l'utilisateur. Session invalide." };
+    }
+
+    const clientDataFromForm = donneesReservation.client;
+    clientDataFromForm.email = userEmail; // Forcer l'e-mail de la session
+    const client = clientDataFromForm;
+
     const items = donneesReservation.items;
     const destinataire = donneesReservation.destinataire;
     const codeParrainageUtilise = donneesReservation.codeParrainage || null;
@@ -149,11 +158,11 @@ function enregistrerOuMajDestinataire(destinataire, emailClientAssocie) {
     }
 
     const rowData = [
-        destinataire.nom,
-        destinataire.adresse,
-        destinataire.email || '',
-        destinataire.telephone || '',
-        emailClientAssocie
+        sanitizeForSheet(destinataire.nom),
+        sanitizeForSheet(destinataire.adresse),
+        sanitizeForSheet(destinataire.email || ''),
+        sanitizeForSheet(destinataire.telephone || ''),
+        emailClientAssocie // Pas besoin de nettoyer, vient de la session
     ];
 
     if (rowIndex !== -1) {
@@ -175,24 +184,35 @@ function enregistrerOuMajDestinataire(destinataire, emailClientAssocie) {
 function envoyerDevisParEmail(donneesDevis) {
   const CONFIG = getConfiguration();
   try {
-    const client = donneesDevis.client;
-    const items = donneesDevis.items;
-    const emailClient = client.email;
+    // --- Correction de sécurité : Toujours utiliser l'e-mail de la session et recalculer les prix ---
+    const userEmail = Session.getActiveUser().getEmail();
+    if (!userEmail) {
+      return { success: false, error: "Impossible d'identifier l'utilisateur. Session invalide." };
+    }
 
-    if (!emailClient || items.length === 0) {
+    const client = donneesDevis.client;
+    client.email = userEmail; // Forcer l'e-mail de la session
+    const items = donneesDevis.items;
+
+    if (!client.email || items.length === 0) {
       throw new Error("Email ou panier manquant pour l'envoi du devis.");
     }
 
     let totalDevis = 0;
     const lignesHtml = items.map(item => {
+      // --- Recalcul du prix côté serveur ---
+      const infosTournee = calculerInfosTourneeBase(item.totalStops, item.returnToPharmacy, item.date, item.startTime);
+      const prixServeur = infosTournee.prix;
+      totalDevis += prixServeur;
+
       const date = new Date(item.date + 'T00:00:00');
       const dateFormatee = formaterDateEnFrancais(date);
-      totalDevis += item.prix;
+
       return `
         <tr>
           <td style="padding: 8px; border-bottom: 1px solid #ddd;">${dateFormatee} à ${item.startTime}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.details}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${item.prix.toFixed(2)} €</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${infosTournee.details}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${prixServeur.toFixed(2)} €</td>
         </tr>
       `;
     }).join('');

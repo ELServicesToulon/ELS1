@@ -3,13 +3,14 @@
                       FEUILLE DE STYLE - ESPACE CLIENT
    ================================================================= */
 
-/* --- VARIABLES DE COULEURS ET STYLES DE BASE --- */
+/* --- VARIABLES DE COULEURS ET STYLES DE BASE (CONFORME) --- */
 :root {
-  --couleur-primaire: #8e44ad; /* Violet */
-  --couleur-secondaire: #3498db; /* Bleu */
-  --couleur-succes: #27ae60; /* Vert */
+  --couleur-principale: #8e44ad; /* Violet */
+  --couleur-principale-hover: #732d91; /* Violet foncé */
+  --couleur-action: #3498db; /* Bleu */
+  --couleur-options: #5dade2; /* Bleu clair */
+  --couleur-succes: var(--couleur-action); /* Bleu pour succès */
   --couleur-erreur: #c0392b; /* Rouge */
-  --couleur-avertissement: #f39c12; /* Jaune */
   --gris-clair: #f9f9f9;
   --gris-moyen: #6c757d;
   --gris-fonce: #343a40;
@@ -29,7 +30,7 @@ body {
 
 /* --- ACCESSIBILITÉ : Style pour le focus clavier --- */
 .btn:focus, .champ-formulaire:focus, .btn-fermer:focus {
-  outline: 3px solid var(--couleur-secondaire);
+  outline: 3px solid var(--couleur-action);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.3);
 }
@@ -64,7 +65,7 @@ body {
   gap: 15px;
   align-items: center;
 }
-.reservation-details h4 { margin: 0 0 10px 0; color: var(--couleur-primaire); }
+.reservation-details h4 { margin: 0 0 10px 0; color: var(--couleur-principale); }
 .reservation-details p { margin: 5px 0; }
 .reservation-actions { display: flex; flex-direction: column; gap: 10px; }
 .message-aucune-reservation { text-align: center; padding: 30px; color: var(--gris-moyen); }
@@ -75,8 +76,8 @@ body {
 .champ-formulaire { width: 100%; padding: 12px; border: 1px solid var(--couleur-bordure); border-radius: 8px; box-sizing: border-box; }
 .btn { padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: all 0.2s; font-family: var(--police-principale); text-decoration: none; display: inline-block; text-align: center; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-primaire { background-color: var(--couleur-primaire); color: white; }
-.btn-primaire:not(:disabled):hover { background-color: #732d91; }
+.btn-primaire { background-color: var(--couleur-principale); color: white; }
+.btn-primaire:not(:disabled):hover { background-color: var(--couleur-principale-hover); }
 .btn-secondaire { background-color: var(--couleur-bordure); color: var(--gris-fonce); }
 .btn-secondaire:not(:disabled):hover { background-color: #dcdfe2; }
 .message-erreur-connexion { color: var(--couleur-erreur); margin-top: 10px; font-size: 0.9em; }
@@ -88,12 +89,12 @@ body {
 .modale-actions { margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--couleur-bordure); display: flex; justify-content: flex-end; gap: 10px; }
 .grille-creneaux { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; margin-top: 15px; }
 .slot-btn { padding: 10px; border-radius: 8px; cursor: pointer; border: 2px solid var(--couleur-bordure); background-color: transparent; }
-.slot-btn:hover { border-color: var(--couleur-primaire); }
-.slot-btn.selected { background-color: var(--couleur-primaire); color: white; border-color: var(--couleur-primaire); }
+.slot-btn:hover { border-color: var(--couleur-principale); }
+.slot-btn.selected { background-color: var(--couleur-principale); color: white; border-color: var(--couleur-principale); }
 
 /* --- CHARGEMENT & NOTIFICATIONS --- */
 .indicateur-chargement-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255,255,255,0.8); z-index: 1001; display: flex; justify-content: center; align-items: center; }
-.spinner { width: 50px; height: 50px; border: 5px solid var(--couleur-bordure); border-top-color: var(--couleur-primaire); border-radius: 50%; animation: spin 1s linear infinite; }
+.spinner { width: 50px; height: 50px; border: 5px solid var(--couleur-bordure); border-top-color: var(--couleur-principale); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .hidden { display: none !important; }
 
@@ -111,6 +112,3 @@ body {
   .reservation-actions { flex-direction: row; }
 }
 </style>
-
-
-

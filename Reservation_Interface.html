@@ -143,15 +143,21 @@
       <div class="reservation-columns" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; margin-top: 25px; margin-bottom: 20px;">
         <div class="reservation-box" style="background: rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px 16px; flex: 1 1 260px; min-width: 250px; max-width: 300px; text-align: center;">
           <h3>📦 Course de base</h3>
-          <p>15 € net</p><p>9 km inclus</p><p>~30 min</p><p><strong>1<sup>er</sup> arrêt inclus</strong></p>
+          <p><?= prixBase ?> € net</p><p><?= KM_BASE ?> km inclus</p><p>~<?= DUREE_BASE ?> min</p><p><strong>1<sup>er</sup> arrêt inclus</strong></p>
         </div>
         <div class="reservation-box" style="background: rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px 16px; flex: 1 1 260px; min-width: 250px; max-width: 300px; text-align: center;">
           <h3>➕ Arrêts supplémentaires</h3>
-          <ul style="list-style: none; padding: 0;"><li>2<sup>e</sup> arrêt : 5 €</li><li>3<sup>e</sup> arrêt : 3 €</li><li>4<sup>e</sup> arrêt : 4 €</li><li>À partir du 5<sup>e</sup> : 5 €/arrêt</li></ul>
+          <ul style="list-style: none; padding: 0;">
+            <li>2<sup>e</sup> arrêt : <?= tarifs['Normal'].arrets[0] ?> €</li>
+            <li>3<sup>e</sup> arrêt : <?= tarifs['Normal'].arrets[1] ?> €</li>
+            <li>4<sup>e</sup> arrêt : <?= tarifs['Normal'].arrets[2] ?> €</li>
+            <li>À partir du 5<sup>e</sup> : <?= tarifs['Normal'].arrets[3] ?> €/arrêt</li>
+          </ul>
         </div>
         <div class="reservation-box" style="background: rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px 16px; flex: 1 1 260px; min-width: 250px; max-width: 300px; text-align: center;">
           <h3>📅 Options</h3>
-          <p><strong>Samedi</strong> : dès 25 € net</p><p><strong>Urgent</strong> : départ sous 30 min (selon dispo), dès 20 € net</p>
+          <p><strong>Samedi</strong> : dès <?= tarifs['Samedi'].base ?> € net</p>
+          <p><strong>Urgent</strong> : départ sous <?= URGENT_THRESHOLD_MINUTES ?> min (selon dispo), dès <?= tarifs['Urgent'].base ?> € net</p>
         </div>
       </div>
       <div class="reservation-footer" style="margin-top: 18px; font-size: 0.95em; color: #e6f4fa;">

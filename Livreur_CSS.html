@@ -1,9 +1,23 @@
 <style>
+  :root {
+    --couleur-principale: #8e44ad;
+    --couleur-action: #3498db;
+    --couleur-action-hover: #2980b9;
+    --couleur-action-desactive: #a9cce3;
+    --couleur-options: #5dade2;
+    --couleur-texte: #3a3a3a;
+    --couleur-fond: #f4f7f6;
+    --couleur-surface: #ffffff;
+    --couleur-bordure: #eeeeee;
+    --couleur-succes: var(--couleur-action);
+    --couleur-erreur: #c0392b; /* Rouge sobre */
+  }
+
   body, html {
     font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     margin: 0;
-    background-color: #f4f7f6;
-    color: #3a3a3a;
+    background-color: var(--couleur-fond);
+    color: var(--couleur-texte);
   }
 
   .indicateur-chargement-overlay {
@@ -19,8 +33,8 @@
     z-index: 1000;
   }
   .spinner {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #007bff;
+    border: 4px solid var(--couleur-bordure);
+    border-top: 4px solid var(--couleur-action);
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -33,13 +47,13 @@
   .hidden { display: none; }
 
   .app-en-tete {
-    background-color: #fff;
+    background-color: var(--couleur-surface);
     padding: 1rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     text-align: center;
     font-weight: 600;
     font-size: 1.2rem;
-    color: #007bff;
+    color: var(--couleur-action);
   }
 
   .conteneur-principal {
@@ -49,7 +63,7 @@
   }
 
   .carte {
-    background-color: #fff;
+    background-color: var(--couleur-surface);
     border-radius: 8px;
     margin-bottom: 1rem;
     padding: 1rem;
@@ -72,14 +86,14 @@
 
   .reservation-item h4 {
     margin-top: 0;
-    color: #0056b3;
-    border-bottom: 1px solid #eee;
+    color: var(--couleur-action-hover);
+    border-bottom: 1px solid var(--couleur-bordure);
     padding-bottom: 0.5rem;
   }
 
   .details-livraison {
     margin-top: 1rem;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--couleur-bordure);
     padding-top: 1rem;
     display: flex;
     flex-direction: column;
@@ -135,15 +149,15 @@
     transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
   }
   .btn-primaire {
-    background-color: #007bff;
+    background-color: var(--couleur-action);
     color: white;
-    border-color: #007bff;
+    border-color: var(--couleur-action);
   }
   .btn-primaire:hover {
-    background-color: #0056b3;
+    background-color: var(--couleur-action-hover);
   }
   .btn-primaire:disabled {
-    background-color: #a0c7ff;
+    background-color: var(--couleur-action-desactive);
     cursor: not-allowed;
   }
 
@@ -164,6 +178,6 @@
     opacity: 1;
     transition: opacity 0.5s ease-out;
   }
-  .notification.succes { background-color: #28a745; }
-  .notification.erreur { background-color: #dc3545; }
+  .notification.succes { background-color: var(--couleur-succes); }
+  .notification.erreur { background-color: var(--couleur-erreur); }
 </style>

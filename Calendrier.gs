@@ -68,6 +68,20 @@ function obtenirCreneauxDisponiblesPourDate(dateString, duree, idEvenementAIgnor
     let heureActuelle = new Date(debutJournee);
     const idPropreAIgnorer = idEvenementAIgnorer ? idEvenementAIgnorer.split('@')[0] : null;
 
+    // Règle: Bloquer les créneaux passés et appliquer le tampon par rapport à l'heure actuelle
+    if (!estAdmin) {
+      const tempsMinimum = new Date(new Date().getTime() + CONFIG.DUREE_TAMPON_MINUTES * 60000);
+      if (heureActuelle < tempsMinimum) {
+        heureActuelle = new Date(tempsMinimum);
+        const minutes = heureActuelle.getMinutes();
+        const surplus = minutes % CONFIG.INTERVALLE_CRENEAUX_MINUTES;
+        if (surplus > 0) {
+          heureActuelle.setMinutes(minutes + (CONFIG.INTERVALLE_CRENEAUX_MINUTES - surplus));
+          heureActuelle.setSeconds(0, 0);
+        }
+      }
+    }
+
     while (heureActuelle < finJournee) {
       const debutCreneau = new Date(heureActuelle);
       const finCreneau = new Date(debutCreneau.getTime() + duree * 60000);

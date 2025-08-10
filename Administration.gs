@@ -5,6 +5,10 @@
  */
 
 function genererFactures() {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) {
+    SpreadsheetApp.getUi().alert("Action non autorisée.");
+    return;
+  }
   const CONFIG = getConfiguration();
   const ui = SpreadsheetApp.getUi();
   try {
@@ -179,6 +183,7 @@ function genererFactures() {
 }
 
 function obtenirTousLesClients() {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return [];
   const CONFIG = getConfiguration();
   try {
     const feuilleClients = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Clients");
@@ -209,6 +214,7 @@ function obtenirTousLesClients() {
 }
 
 function obtenirReservationsAdmin(dateString = null) {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
   const CONFIG = getConfiguration();
   try {
     const feuille = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Facturation");
@@ -251,6 +257,7 @@ function obtenirToutesReservationsPourDate(dateString) {
 }
 
 function creerReservationAdmin(data) {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
@@ -317,6 +324,7 @@ function creerReservationAdmin(data) {
 }
 
 function supprimerReservation(idReservation) {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
@@ -362,6 +370,7 @@ function supprimerReservation(idReservation) {
 }
 
 function mettreAJourDetailsReservation(idReservation, nouveauxArrets) {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return { success: false, error: "Le système est occupé, veuillez réessayer." };
@@ -426,6 +435,7 @@ function mettreAJourDetailsReservation(idReservation, nouveauxArrets) {
 }
 
 function replanifierReservation(idReservation, nouvelleDate, nouvelleHeure) {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return { success: false, error: "Le système est occupé." };
@@ -492,6 +502,7 @@ function replanifierReservation(idReservation, nouvelleDate, nouvelleHeure) {
 }
 
 function appliquerRemiseReservation(idReservation, typeRemise, valeurRemise, nbTourneesOffertesClient) {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
   const CONFIG = getConfiguration();
   try {
     const sheet = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName('Facturation');
@@ -699,10 +710,90 @@ function formaterDateEnFrancais(date) {
 }
 
 
+function envoyerFacturesControlees() {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) {
+    SpreadsheetApp.getUi().alert("Action non autorisée.");
+    return;
+  }
+  const CONFIG = getConfiguration();
+  const ui = SpreadsheetApp.getUi();
+  try {
+    logAdminAction("Envoi Factures", "Démarré");
+    const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
+    const feuilleFacturation = ss.getSheetByName("Facturation");
+    if (!feuilleFacturation) throw new Error("Feuille 'Facturation' introuvable.");
+
+    const enTetes = ["Email à envoyer", "Client (Email)", "N° Facture", "ID PDF", "Valider"];
+    const indices = obtenirIndicesEnTetes(feuilleFacturation, enTetes);
+
+    const facturationData = feuilleFacturation.getDataRange().getValues();
+    const facturesAEnvoyer = facturationData
+      .map((row, index) => ({ data: row, indexLigne: index + 1 }))
+      .slice(1)
+      .filter(item => item.data[indices['Email à envoyer']] === true);
+
+    if (facturesAEnvoyer.length === 0) {
+      ui.alert("Aucune facture n'est sélectionnée pour l'envoi.");
+      return;
+    }
+
+    const messagesErreurs = [];
+    let compteurSucces = 0;
+
+    const sujetEmail = CONFIG.SUJET_EMAIL_FACTURE || `Votre facture {{numero_facture}} - ${CONFIG.NOM_ENTREPRISE}`;
+    const corpsEmail = CONFIG.CORPS_EMAIL_FACTURE || `Bonjour,\n\nVeuillez trouver ci-joint votre facture n°{{numero_facture}}.\n\nCordialement,\nL'équipe ${CONFIG.NOM_ENTREPRISE}`;
+
+    facturesAEnvoyer.forEach(item => {
+      const ligneData = item.data;
+      const emailClient = String(ligneData[indices['Client (Email)']]).trim();
+      const numFacture = String(ligneData[indices['N° Facture']]).trim();
+      const idPdf = String(ligneData[indices['ID PDF']]).trim();
+
+      try {
+        if (!emailClient || !numFacture || !idPdf) {
+          throw new Error(`Données manquantes sur la ligne ${item.indexLigne}.`);
+        }
+
+        const fichierPDF = DriveApp.getFileById(idPdf);
+        const sujet = sujetEmail.replace('{{numero_facture}}', numFacture);
+        const corps = corpsEmail.replace('{{numero_facture}}', numFacture);
+
+        MailApp.sendEmail({
+          to: emailClient,
+          subject: sujet,
+          body: corps,
+          attachments: [fichierPDF.getAs(MimeType.PDF)],
+          name: CONFIG.NOM_ENTREPRISE
+        });
+
+        // Décocher la case après envoi réussi
+        feuilleFacturation.getRange(item.indexLigne, indices['Email à envoyer'] + 1).setValue(false);
+        compteurSucces++;
+
+      } catch (err) {
+        messagesErreurs.push(`Ligne ${item.indexLigne}: Erreur pour ${emailClient} - ${err.message}`);
+        Logger.log(`Erreur envoi facture ${numFacture} à ${emailClient}: ${err.stack}`);
+      }
+    });
+
+    logAdminAction("Envoi Factures", `Succès: ${compteurSucces}. Erreurs: ${messagesErreurs.length}`);
+    const messageFinal = `${compteurSucces} email(s) de facture envoyé(s) avec succès.\n\n` +
+      `Erreurs rencontrées:\n${messagesErreurs.join('\n') || 'Aucune'}`;
+    ui.alert("Envoi des factures terminé", messageFinal, ui.ButtonSet.OK);
+
+  } catch (e) {
+    Logger.log(`ERREUR FATALE dans envoyerFacturesControlees: ${e.stack}`);
+    logAdminAction("Envoi Factures", `Échec critique: ${e.message}`);
+    ui.showModalDialog(HtmlService.createHtmlOutput(`<p>Une erreur critique est survenue:</p><pre>${e.message}</pre>`), "Erreur Critique");
+  }
+}
+
+
 /**
  * Récupère la liste des clients pour le panneau admin.
  */
 function getClientsPourAdmin() {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return [];
   const CONFIG = getConfiguration();
   try {
     const ss = SpreadsheetApp.openById(CONFIG.CLIENT_SHEET_ID);

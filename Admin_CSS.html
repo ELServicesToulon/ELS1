@@ -1,11 +1,12 @@
 <style>
-/* --- VARIABLES DE COULEURS ET STYLES DE BASE --- */
+/* --- VARIABLES DE COULEURS ET STYLES DE BASE (CONFORME À LA CHARTE) --- */
 :root {
-  --couleur-primaire: #2980b9; /* Bleu Admin */
-  --couleur-secondaire: #2c3e50; /* Gris Foncé Admin */
-  --couleur-succes: #27ae60;
+  --couleur-principale: #8e44ad; /* Violet pour branding */
+  --couleur-action: #3498db;     /* Bleu pour boutons primaires et liens */
+  --couleur-action-hover: #2980b9; /* Bleu plus foncé pour survol */
+  --couleur-options: #5dade2;     /* Bleu clair pour actions secondaires/spéciales */
+
   --couleur-erreur: #c0392b;
-  --couleur-avertissement: #f39c12;
   --gris-clair: #f4f6f9;
   --gris-moyen: #7f8c8d;
   --gris-fonce: #34495e;
@@ -42,7 +43,7 @@ body {
 }
 
 .carte h3 {
-  color: var(--couleur-primaire);
+  color: var(--couleur-action);
   margin-top: 0;
 }
 
@@ -68,7 +69,7 @@ body {
 }
 
 .groupe-client-en-tete {
-  background-color: var(--couleur-secondaire);
+  background-color: var(--couleur-principale);
   color: white;
   padding: 10px 15px;
   border-radius: 8px 8px 0 0;
@@ -92,7 +93,7 @@ body {
 .carte-heure {
   font-size: 1.2em;
   font-weight: 600;
-  color: var(--couleur-primaire);
+  color: var(--couleur-action);
   margin-right: 20px;
   text-align: center;
 }
@@ -119,7 +120,7 @@ body {
 
 .info-remise {
   font-weight: bold;
-  color: var(--couleur-avertissement);
+  color: var(--couleur-options);
   margin-left: 5px;
 }
 
@@ -150,12 +151,12 @@ body {
 }
 
 .btn-primaire {
-  background-color: var(--couleur-primaire);
+  background-color: var(--couleur-action);
   color: white;
 }
 
 .btn-primaire:not(:disabled):hover {
-  background-color: #3498db;
+  background-color: var(--couleur-action-hover);
   transform: translateY(-2px);
 }
 
@@ -170,7 +171,7 @@ body {
 }
 
 .btn-appliquer-remise {
-  background-color: var(--couleur-avertissement);
+  background-color: var(--couleur-options);
   color: white;
 }
 
@@ -240,7 +241,7 @@ body {
 }
 
 .btn-compteur {
-  background-color: var(--couleur-secondaire);
+  background-color: var(--gris-fonce);
   color: white;
   border-radius: 50%;
   width: 30px;
@@ -272,9 +273,9 @@ body {
 
 .btn-creneau-replanif {
   padding: 10px;
-  border: 1px solid var(--couleur-primaire);
+  border: 1px solid var(--couleur-action);
   background-color: #ecf0f1;
-  color: var(--couleur-primaire);
+  color: var(--couleur-action);
   border-radius: 8px;
   cursor: pointer;
   transition: background-color 0.2s, color 0.2s;
@@ -284,7 +285,7 @@ body {
 
 .btn-creneau-replanif:hover,
 .btn-creneau-replanif.selected {
-  background-color: var(--couleur-primaire);
+  background-color: var(--couleur-action);
   color: white;
 }
 
@@ -306,7 +307,7 @@ body {
   width: 50px;
   height: 50px;
   border: 5px solid var(--couleur-bordure);
-  border-top-color: var(--couleur-primaire);
+  border-top-color: var(--couleur-action);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -332,4 +333,3 @@ body {
   /* Styles similaires à la page de réservation */
 }
 </style>
-

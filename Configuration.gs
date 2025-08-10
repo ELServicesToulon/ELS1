@@ -23,6 +23,7 @@ function getConfiguration() {
     RIB_ENTREPRISE: "FR7640618804760004035757187",
     BIC_ENTREPRISE: "BOUSFRPPXXX",
     ADMIN_EMAIL: "elservicestoulon@gmail.com",
+    LIVREUR_EMAILS: ["livreur1@example.com", "livreur2@example.com"], // Emails des livreurs autorisés
     logoCompletClairBase64: "PLACEHOLDER_BASE64_LOGO_STRING",
 
     // --- Paramètres de facturation ---

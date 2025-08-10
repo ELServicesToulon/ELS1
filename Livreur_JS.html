@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     afficherReservations(reponse.reservations);
                 } else {
                     afficherErreur(reponse.error);
-                    if (contenuReservations) contenuReservations.innerHTML = `<p style="color: red;">${reponse.error}</p>`;
+                    if (contenuReservations) contenuReservations.innerHTML = `<p style="color: #c0392b;">${reponse.error}</p>`;
                 }
             })
             .withFailureHandler(afficherErreur)

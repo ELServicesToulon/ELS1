@@ -457,9 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const retour = checkRetour?.checked || false;
             const date = champDateAjout?.value;
             
-            const DUREE_BASE = 30; 
-            const DUREE_ARRET_SUP = 15;
-            const duree = DUREE_BASE + (arretsSupplementaires + (retour ? 1 : 0)) * DUREE_ARRET_SUP;
+            const duree = configServeur.DUREE_BASE + (arretsSupplementaires + (retour ? 1 : 0)) * configServeur.DUREE_ARRET_SUP;
 
             if (!date) return;
             conteneurCreneaux?.classList.remove('hidden');
