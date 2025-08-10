@@ -160,3 +160,16 @@ function sanitizeForSheet(input) {
   }
   return sanitized;
 }
+
+/**
+ * Vérifie si l'utilisateur est un livreur autorisé.
+ * @param {string} email - L'adresse email de l'utilisateur.
+ * @returns {boolean} - True si l'utilisateur est un livreur, sinon false.
+ */
+function isUserLivreur(email) {
+  if (!email) {
+    return false;
+  }
+  const CONFIG = getConfiguration();
+  return CONFIG.LIVREUR_EMAILS.map(e => e.toLowerCase()).includes(email.toLowerCase());
+}

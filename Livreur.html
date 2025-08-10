@@ -11,8 +11,13 @@
  * @returns {Object} Un objet contenant les réservations.
  */
 function getReservationsPourLivreur(dateString) {
-    // Pour l'instant, on réutilise la même fonction que l'admin.
-    // On pourra la spécialiser plus tard si besoin.
+    const userEmail = Session.getActiveUser().getEmail();
+    if (!isUserLivreur(userEmail) && !isUserAdmin(userEmail)) {
+        return { success: false, error: "Accès non autorisé." };
+    }
+
+    // Pour l'instant, on réutilise la même fonction que l'admin, car elle est maintenant sécurisée.
+    // On pourra la spécialiser plus tard si besoin pour ne retourner que les champs nécessaires.
     return obtenirToutesReservationsPourDate(dateString);
 }
 
@@ -22,6 +27,11 @@ function getReservationsPourLivreur(dateString) {
  * @returns {Object} Un objet indiquant le succès de l'opération.
  */
 function enregistrerDetailsLivraison(details) {
+    const userEmail = Session.getActiveUser().getEmail();
+    if (!isUserLivreur(userEmail) && !isUserAdmin(userEmail)) {
+        return { success: false, error: "Accès non autorisé." };
+    }
+
     const { idReservation, note, options } = details;
 
     if (!idReservation) {
@@ -60,7 +70,7 @@ function enregistrerDetailsLivraison(details) {
 
         const rowToUpdate = rowIndex + 2; // +1 for headers, +1 for 0-based index
 
-        sheet.getRange(rowToUpdate, indices.note + 1).setValue(note || '');
+        sheet.getRange(rowToUpdate, indices.note + 1).setValue(sanitizeForSheet(note || ''));
         sheet.getRange(rowToUpdate, indices.frigo + 1).setValue(options.frigo || false);
         sheet.getRange(rowToUpdate, indices.tampon + 1).setValue(options.tampon || false);
         sheet.getRange(rowToUpdate, indices.reprise + 1).setValue(options.reprise || false);
