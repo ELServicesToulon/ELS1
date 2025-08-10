@@ -3,8 +3,27 @@
 <head>
   <base target="_top">
   <meta charset="UTF-8">
+  <meta name="description" content="Réservez une course en quelques clics. Service de livraison rapide et fiable pour les professionnels. Tarifs transparents et options flexibles.">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= nomService ?> | Réservation de Livraison</title>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "<?= nomService ?>",
+    "description": "Service de livraison express pour les professionnels, spécialisé dans le secteur pharmaceutique.",
+    "url": "<?= appUrl ?>",
+    "logo": "<?= logoUrl ?>",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "<?= adresse ?>"
+    },
+    "email": "<?= email ?>",
+    "areaServed": "Toulon"
+  }
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -36,14 +55,14 @@
 
     /* --- Styles pour la section Parrainage --- */
     .parrainage-container {
-      background-color: #f0f8ff;
-      border: 1px solid #bde0fe;
+      background-color: #f4f6f9; /* Utilisation de var(--gris-clair) */
+      border: 1px solid #dfe6e9; /* Utilisation de var(--couleur-bordure) */
       border-radius: 12px;
       padding: 20px;
       margin-bottom: 2rem;
       text-align: center;
     }
-    .parrainage-container h3 { color: #0369a1; margin-top: 0; font-weight: 600; }
+    .parrainage-container h3 { color: #3498db; /* Utilisation de var(--couleur-action) */ margin-top: 0; font-weight: 600; }
     .parrainage-subtitle { font-size: 0.9em; color: #555; margin-bottom: 15px; max-width: 450px; margin-left: auto; margin-right: auto; }
     .parrainage-container .input-group { display: flex; justify-content: center; max-width: 400px; margin: 0 auto; }
     .parrainage-container input[type="text"] { border: 1px solid #ccc; padding: 10px; border-radius: 8px 0 0 8px; flex-grow: 1; text-align: center; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
@@ -164,7 +183,15 @@
         <p><strong>TVA non applicable (art. 293 B CGI)</strong></p>
         <p>Tarifs et forfaits modulables à tout moment par l’administrateur.</p>
         <p>📦 Traçabilité & sécurité garanties – 📬 Confirmation et facture immédiates</p>
-        <p>(CGV, documents officiels et conditions accessibles à tout moment)</p>
+        <div style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 1rem;">
+          <p><strong>FAQ Paiement :</strong> Le paiement s'effectue à réception de facture, par virement ou chèque.</p>
+          <p><strong>Engagement :</strong> Nos livraisons sont effectuées avec des véhicules 100% électriques.</p>
+        </div>
+        <p>
+          <a href="https://docs.google.com/document/d/<?= ID_DOCUMENT_CGV ?>/edit?usp=sharing" target="_blank" style="color: white;">CGV</a> |
+          <a href="<?= appUrl ?>?page=faq" target="_blank" style="color: white;">FAQ</a>
+          (documents officiels et conditions accessibles à tout moment)
+        </p>
         <p>📧 Contact : <a href="mailto:elservicetoulon@gmail.com" style="color: #ffffff; text-decoration: underline;">elservicetoulon@gmail.com</a></p>
       </div>
     </div>
@@ -222,6 +249,13 @@
             <div class="groupe-formulaire"><label for="client-adresse">Adresse</label><input type="text" id="client-adresse"></div>
             <div class="groupe-formulaire"><label for="client-siret">SIRET</label><input type="text" id="client-siret"></div>
             <div class="groupe-formulaire"><label for="note-reservation">Note (optionnel)</label><textarea id="note-reservation"></textarea></div>
+
+            <div class="groupe-formulaire groupe-formulaire-checkbox" style="margin-top: 1rem;">
+              <input type="checkbox" id="consent-rgpd" name="consent-rgpd" required>
+              <label for="consent-rgpd" style="font-size: 0.9em; color: #555;">
+                En cochant cette case, je consens à la collecte de mes données personnelles pour le traitement de ma réservation. Je confirme avoir lu et accepté la politique de confidentialité du service.
+              </label>
+            </div>
             
             <!-- =================================================================
                  NOUVELLE SECTION POUR LE DESTINATAIRE

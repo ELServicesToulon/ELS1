@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Foire Aux Questions concernant le service de livraison. Trouvez les réponses à vos questions sur les tarifs, les horaires, et la réservation.">
+  <title>FAQ - Foire Aux Questions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <?!= include('Client_CSS'); ?>
+  <style>
+    .conteneur-faq {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 1rem;
+    }
+    .faq-item {
+      margin-bottom: 1rem;
+      border: 1px solid var(--couleur-bordure);
+      border-radius: 8px;
+    }
+    .faq-item summary {
+      font-weight: 600;
+      padding: 1rem;
+      cursor: pointer;
+      position: relative;
+    }
+    .faq-item summary::after {
+      content: '+';
+      position: absolute;
+      right: 1rem;
+      font-size: 1.5em;
+      transition: transform 0.2s;
+    }
+    .faq-item[open] summary::after {
+      transform: rotate(45deg);
+    }
+    .faq-reponse {
+      padding: 0 1rem 1rem 1rem;
+      line-height: 1.6;
+    }
+    .app-en-tete a {
+        text-decoration: none;
+        font-weight: normal;
+        color: var(--couleur-action);
+    }
+  </style>
+</head>
+<body>
+  <div class="conteneur-faq">
+    <header class="app-en-tete" style="margin-bottom: 2rem;">
+        <h1>Foire Aux Questions (FAQ)</h1>
+        <a href="<?= ScriptApp.getService().getUrl() ?>">Retour à la page de réservation</a>
+    </header>
+
+    <main>
+      <details class="faq-item">
+        <summary>Quels sont vos horaires de service ?</summary>
+        <div class="faq-reponse">
+          <p>Nos services de livraison sont disponibles du lundi au samedi, de 8h30 à 18h30. Nous sommes fermés le dimanche.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Comment est calculé le prix d'une course ?</summary>
+        <div class="faq-reponse">
+          <p>Le prix est basé sur un forfait de départ qui inclut le premier arrêt. Chaque arrêt supplémentaire est ensuite facturé selon une grille tarifaire dégressive. Des options pour les courses urgentes ou le samedi sont également disponibles avec une tarification spécifique.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Puis-je modifier ou annuler une réservation ?</summary>
+        <div class="faq-reponse">
+          <p>Oui, vous pouvez modifier ou annuler une réservation directement depuis votre espace client. Veuillez noter qu'un délai minimum avant l'heure de la course est requis pour toute modification. Passé ce délai, vous devrez nous contacter directement.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Comment puis-je payer mes factures ?</summary>
+        <div class="faq-reponse">
+          <p>Le paiement s'effectue à réception de la facture, que vous recevrez par e-mail. Vous pouvez régler par virement bancaire ou par chèque. Les détails de paiement sont indiqués sur chaque facture.</p>
+        </div>
+      </details>
+    </main>
+  </div>
+</body>
+</html>

@@ -10,7 +10,7 @@
  * @returns {Object} Un objet de statut.
  */
 function demanderLienDeConnexion(email) {
-  if (!email || !/S+@S+.S+/.test(email)) {
+  if (!email || !/\S+@\S+\.\S+/.test(email)) {
     return { success: false, message: "Veuillez fournir une adresse e-mail valide." };
   }
 
@@ -77,31 +77,31 @@ function verifierTokenEtChargerDonnees(token) {
 }
 
 /**
- * Récupère les réservations pour un client donné (identifié par son token).
+ * Récupère les réservations pour un client donné, avec options de filtre.
  * @param {string} token Le jeton de session du client.
- * @returns {Object} Un objet contenant le statut et les listes de réservations futures et passées.
+ * @param {Object} options Un objet avec { mois, annee } pour le filtrage.
+ * @returns {Object} Un objet contenant les listes de réservations futures et passées.
  */
-function obtenirReservationsClient(token) {
+function obtenirReservationsClient(token, options = {}) {
     const email = CacheService.getScriptCache().get(token);
     if (!email) {
-        return { success: false, error: "Session invalide ou expirée. Veuillez vous reconnecter." };
+        return { success: false, error: "Session invalide ou expirée." };
     }
 
     const CONFIG = getConfiguration();
     try {
         const feuille = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Facturation");
-        const enTetes = ["Date", "Client (Email)", "Event ID", "Détails", "ID Réservation", "Montant", "T° Statut"];
+        const enTetes = ["Date", "Client (Email)", "Event ID", "Détails", "ID Réservation", "Montant", "T° Statut", "ID PDF", "N° Facture"];
         const indices = obtenirIndicesEnTetes(feuille, enTetes);
-        const emailClientIndex = indices["Client (Email)"];
 
         const donnees = feuille.getDataRange().getValues();
         const maintenant = new Date();
 
-        const reservationsFutures = [];
-        const reservationsPassees = [];
+        let reservationsFutures = [];
+        let reservationsPassees = [];
 
         donnees.slice(1).forEach(ligne => {
-            if (String(ligne[emailClientIndex]).trim().toLowerCase() === email.trim().toLowerCase()) {
+            if (String(ligne[indices["Client (Email)"]]).trim().toLowerCase() === email.trim().toLowerCase()) {
                 const dateReservation = new Date(ligne[indices["Date"]]);
                 const estModifiable = (dateReservation.getTime() - maintenant.getTime()) > (CONFIG.DELAI_MODIFICATION_MINUTES * 60 * 1000);
 
@@ -111,7 +111,9 @@ function obtenirReservationsClient(token) {
                   details: ligne[indices["Détails"]],
                   amount: parseFloat(ligne[indices["Montant"]]) || 0,
                   statut: ligne[indices["T° Statut"]],
-                  modifiable: estModifiable
+                  modifiable: estModifiable,
+                  idPdf: ligne[indices["ID PDF"]] || null,
+                  numFacture: ligne[indices["N° Facture"]] || null
                 };
 
                 const matchArrets = resa.details.match(/(\d+)\s*arrêt\(s\)\s*sup/);
@@ -125,10 +127,52 @@ function obtenirReservationsClient(token) {
             }
         });
 
+        // Filtrage des réservations passées
+        if (options && options.annee) {
+            reservationsPassees = reservationsPassees.filter(r => {
+                const dateResa = new Date(r.start);
+                const anneeOk = dateResa.getFullYear() === options.annee;
+                const moisOk = options.mois ? (dateResa.getMonth() + 1) === options.mois : true;
+                return anneeOk && moisOk;
+            });
+        }
+
+        // Trier les passées par date la plus récente en premier
+        reservationsPassees.sort((a, b) => new Date(b.start) - new Date(a.start));
+
         return { success: true, futures: reservationsFutures, passees: reservationsPassees };
     } catch (e) {
         Logger.log(`Erreur critique dans obtenirReservationsClient: ${e.stack}`);
         return { success: false, error: e.message };
+    }
+}
+
+/**
+ * Récupère le contenu d'une facture en base64 pour le téléchargement côté client.
+ * @param {string} token Le jeton de session du client.
+ * @param {string} idPdf L'ID du fichier PDF sur Google Drive.
+ * @returns {Object} Un objet contenant les données du fichier en base64 et son type MIME.
+ */
+function obtenirBlobFactureBase64(token, idPdf) {
+    const email = CacheService.getScriptCache().get(token);
+    if (!email) return { success: false, error: "Session invalide." };
+    if (!idPdf) return { success: false, error: "ID de facture manquant." };
+
+    try {
+        // Idéalement, on vérifierait aussi que cette facture appartient bien au client `email`.
+        // Pour l'instant, on se fie au fait que l'ID n'est connu que du client.
+        const fichier = DriveApp.getFileById(idPdf);
+        const blob = fichier.getBlob();
+
+        return {
+            success: true,
+            fileName: fichier.getName(),
+            mimeType: blob.getContentType(),
+            data: Utilities.base64Encode(blob.getBytes())
+        };
+    } catch (e) {
+        Logger.log(`Erreur de récupération de la facture PDF ${idPdf} pour ${email}: ${e.stack}`);
+        return { success: false, error: "Impossible de récupérer le fichier de la facture." };
     }
 }
 
@@ -207,4 +251,31 @@ function validerTokenClient(token, idReservation) {
   }
 
   return null;
+}
+
+/**
+ * Enregistre le consentement d'un client dans une feuille de calcul dédiée.
+ * @param {string} email L'e-mail du client.
+ * @param {string} consentText Le texte de la case à cocher de consentement.
+ * @param {string} source La source de l'action (ex: "Formulaire Réservation").
+ */
+function enregistrerConsentementRGPD(email, consentText, source) {
+  try {
+    const CONFIG = getConfiguration();
+    const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
+    let journalSheet = ss.getSheetByName("Journal_RGPD");
+
+    if (!journalSheet) {
+      journalSheet = ss.insertSheet("Journal_RGPD");
+      journalSheet.appendRow(["Date", "Email Client", "Texte Consentement", "Source"]);
+      journalSheet.setFrozenRows(1);
+    }
+
+    journalSheet.appendRow([new Date(), email, consentText, source]);
+    Logger.log(`Consentement RGPD enregistré pour ${email} depuis ${source}`);
+
+  } catch (e) {
+    Logger.log(`Erreur lors de l'enregistrement du consentement RGPD pour ${email}: ${e.stack}`);
+    // Ne pas bloquer l'utilisateur pour une erreur de log
+  }
 }

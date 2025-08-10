@@ -48,7 +48,25 @@ function validateTarifs(tarifs) {
 }
 
 /**
- * Sauvegarde les nouvelles valeurs de configuration dans PropertiesService.
+ * Met à jour une seule valeur de configuration dans PropertiesService.
+ * Utile pour les mises à jour programmatiques comme l'incrémentation du numéro de facture.
+ * @param {string} key - La clé de configuration à mettre à jour.
+ * @param {*} value - La nouvelle valeur.
+ */
+function updateSingleConfigValue(key, value) {
+  const properties = PropertiesService.getScriptProperties();
+  const overridesStr = properties.getProperty('CONFIG_OVERRIDES');
+  const overrides = overridesStr ? JSON.parse(overridesStr) : {};
+
+  overrides[key] = value;
+
+  properties.setProperty('CONFIG_OVERRIDES', JSON.stringify(overrides));
+  Logger.log(`Valeur de configuration unique mise à jour: ${key} = ${value}`);
+}
+
+
+/**
+ * Sauvegarde les nouvelles valeurs de configuration depuis l'interface admin dans PropertiesService.
  * @param {Object} newConfig - Un objet contenant les clés et valeurs à sauvegarder.
  * @returns {Object} Un objet de statut avec un message de succès ou d'erreur.
  */
@@ -64,6 +82,14 @@ function saveConfiguration(newConfig) {
         throw new Error("Aucune configuration fournie.");
     }
 
+    // Validation des IDs (ne doivent pas être vides)
+    const idsToValidate = ['ID_CALENDRIER', 'ID_FEUILLE_CALCUL', 'ID_MODELE_FACTURE', 'ID_DOSSIER_ARCHIVES'];
+    for (const id of idsToValidate) {
+      if (!newConfig[id] || String(newConfig[id]).trim() === '') {
+        throw new Error(`L'identifiant '${id}' ne peut pas être vide.`);
+      }
+    }
+
     validateTarifs(newConfig.TARIFS);
 
     const delai = parseInt(newConfig.DELAI_MODIFICATION_MINUTES, 10);
@@ -71,16 +97,35 @@ function saveConfiguration(newConfig) {
         throw new Error("Le délai de modification doit être un nombre positif.");
     }
 
+    const prochainNumero = parseInt(newConfig.PROCHAIN_NUMERO_FACTURE, 10);
+    if (isNaN(prochainNumero) || prochainNumero < 0) {
+        throw new Error("Le prochain numéro de facture doit être un nombre positif.");
+    }
+
+    if (!newConfig.PREFIXE_FACTURE || typeof newConfig.PREFIXE_FACTURE !== 'string' || newConfig.PREFIXE_FACTURE.trim() === '') {
+        throw new Error("Le préfixe de facture ne peut pas être vide.");
+    }
+
+
     const properties = PropertiesService.getScriptProperties();
+    // On récupère les anciennes surcharges pour ne pas écraser des clés non modifiables dans cette interface
+    const overridesStr = properties.getProperty('CONFIG_OVERRIDES');
+    const overrides = overridesStr ? JSON.parse(overridesStr) : {};
 
-    const configToStore = {
-      DELAI_MODIFICATION_MINUTES: delai,
-      TARIFS: newConfig.TARIFS
-    };
+    // On met à jour les valeurs modifiables
+    overrides.DELAI_MODIFICATION_MINUTES = delai;
+    overrides.TARIFS = newConfig.TARIFS;
+    overrides.PROCHAIN_NUMERO_FACTURE = prochainNumero;
+    overrides.PREFIXE_FACTURE = newConfig.PREFIXE_FACTURE.trim();
+    // On met à jour les IDs
+    idsToValidate.forEach(id => {
+        overrides[id] = newConfig[id].trim();
+    });
 
-    properties.setProperty('CONFIG_OVERRIDES', JSON.stringify(configToStore));
 
-    Logger.log(`Configuration mise à jour par ${userEmail}. Nouvelles valeurs : ${JSON.stringify(configToStore)}`);
+    properties.setProperty('CONFIG_OVERRIDES', JSON.stringify(overrides));
+
+    Logger.log(`Configuration mise à jour par ${userEmail}.`);
     return { success: true, message: "Configuration enregistrée avec succès." };
 
   } catch (e) {

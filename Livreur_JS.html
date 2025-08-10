@@ -1,21 +1,40 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Références DOM ---
     const champDate = document.getElementById('date-livraison');
+    const filtreStatut = document.getElementById('filtre-statut');
+    const triCourses = document.getElementById('tri-courses');
     const contenuReservations = document.getElementById('contenu-reservations');
 
+    /**
+     * Initialise la page et les écouteurs d'événements.
+     */
     function initialiser() {
         const aujourdhui = new Date().toISOString().split('T')[0];
         if (champDate) {
             champDate.value = aujourdhui;
-            champDate.addEventListener('change', () => chargerReservations(champDate.value));
+            // Un seul écouteur pour recharger les données
+            [champDate, filtreStatut, triCourses].forEach(el => {
+                el?.addEventListener('change', chargerReservations);
+            });
         }
-        chargerReservations(aujourdhui);
+        chargerReservations(); // Charge initial
     }
 
-    function chargerReservations(dateString) {
+    /**
+     * Récupère les valeurs des contrôles et charge les réservations.
+     */
+    function chargerReservations() {
+        const dateString = champDate?.value;
         if (!dateString) return;
+
         basculerIndicateurChargement(true);
         if (contenuReservations) contenuReservations.innerHTML = '<p>Chargement des courses...</p>';
+
+        const options = {
+            filtreStatut: filtreStatut?.value || 'tous',
+            tri: triCourses?.value || 'heure_asc'
+        };
 
         google.script.run
             .withSuccessHandler(reponse => {
@@ -24,45 +43,56 @@ document.addEventListener('DOMContentLoaded', () => {
                     afficherReservations(reponse.reservations);
                 } else {
                     afficherErreur(reponse.error);
-                    if (contenuReservations) contenuReservations.innerHTML = `<p style="color: #c0392b;">${reponse.error}</p>`;
                 }
             })
             .withFailureHandler(afficherErreur)
-            .getReservationsPourLivreur(dateString);
+            .getReservationsPourLivreur(dateString, options);
     }
 
+    /**
+     * Affiche les réservations dans le DOM.
+     */
     function afficherReservations(reservations) {
         if (!contenuReservations) return;
         contenuReservations.innerHTML = '';
-        if (reservations.length === 0) {
-            contenuReservations.innerHTML = '<div class="carte"><p>Aucune course prévue pour cette date.</p></div>';
+        if (!reservations || reservations.length === 0) {
+            contenuReservations.innerHTML = '<div class="carte"><p>Aucune course ne correspond à vos critères pour cette date.</p></div>';
             return;
         }
 
         reservations.forEach(resa => {
             const resaElement = document.createElement('div');
-            resaElement.className = 'carte reservation-item';
+            const statutClass = `statut-${(resa.statut || 'a-venir').toLowerCase().replace(/[\s_]+/g, '-')}`;
+            resaElement.className = `carte reservation-item ${statutClass}`;
             resaElement.dataset.id = resa.id;
+            resaElement.dataset.adresse = resa.destinationAddress;
 
             const heureDebut = new Date(resa.start).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            const statutHtml = resa.statut ? `<span class="statut-badge">${resa.statut}</span>` : '';
+
+            // Déterminer le texte et le prochain statut pour le bouton d'action
+            let actionTexte, prochainStatut;
+            switch (resa.statut) {
+                case 'En cours':
+                    actionTexte = 'Marquer comme Livré';
+                    prochainStatut = 'Livré';
+                    break;
+                case 'Livré':
+                    actionTexte = 'Course Terminée';
+                    prochainStatut = null; // Pas d'action
+                    break;
+                default: // 'À venir' ou statut vide
+                    actionTexte = 'Prise en charge';
+                    prochainStatut = 'En cours';
+            }
 
             resaElement.innerHTML = `
-                <h4>${heureDebut} - ${resa.clientName}</h4>
-                <p>${resa.details}</p>
-                <div class="details-livraison">
-                  <div class="groupe-formulaire">
-                    <label for="note-${resa.id}">Note de livraison :</label>
-                    <textarea id="note-${resa.id}" rows="2"></textarea>
-                  </div>
-                  <div class="groupe-checkboxes">
-                    <label><input type="checkbox" data-option="frigo"> Frigo</label>
-                    <label><input type="checkbox" data-option="tampon"> Tampon</label>
-                    <label><input type="checkbox" data-option="reprise"> Reprise</label>
-                    <label><input type="checkbox" data-option="extras"> Extras</label>
-                  </div>
-                  <div class="actions-livraison">
-                    <button class="btn btn-primaire btn-enregistrer">Enregistrer</button>
-                  </div>
+                <h4>${heureDebut} - ${resa.clientName} ${statutHtml}</h4>
+                <p><strong>Détails :</strong> ${resa.details}</p>
+                <p><strong>Adresse :</strong> ${resa.destinationAddress || 'Non spécifiée'}</p>
+                <div class="actions-livraison">
+                    <button class="btn btn-secondaire btn-itineraire" ${!resa.destinationAddress ? 'disabled' : ''}>Itinéraire</button>
+                    <button class="btn btn-primaire btn-statut" data-prochain-statut="${prochainStatut || ''}" ${!prochainStatut ? 'disabled' : ''}>${actionTexte}</button>
                 </div>
             `;
             contenuReservations.appendChild(resaElement);
@@ -71,39 +101,48 @@ document.addEventListener('DOMContentLoaded', () => {
         attacherEcouteursActions();
     }
 
+    /**
+     * Attache les écouteurs d'événements aux boutons d'action des réservations.
+     */
     function attacherEcouteursActions() {
-        document.querySelectorAll('.btn-enregistrer').forEach(btn => {
+        document.querySelectorAll('.btn-statut').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const itemDiv = e.target.closest('.reservation-item');
-                if (!itemDiv) return;
+                const idReservation = itemDiv?.dataset.id;
+                const prochainStatut = e.target.dataset.prochainStatut;
+                if (idReservation && prochainStatut) {
+                    marquerStatut(idReservation, prochainStatut, e.target);
+                }
+            });
+        });
 
-                const idReservation = itemDiv.dataset.id;
-                const note = itemDiv.querySelector('textarea').value;
-                const options = {
-                    frigo: itemDiv.querySelector('[data-option="frigo"]').checked,
-                    tampon: itemDiv.querySelector('[data-option="tampon"]').checked,
-                    reprise: itemDiv.querySelector('[data-option="reprise"]').checked,
-                    extras: itemDiv.querySelector('[data-option="extras"]').checked
-                };
-
-                enregistrerDetails(idReservation, note, options, e.target);
+        document.querySelectorAll('.btn-itineraire').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const itemDiv = e.target.closest('.reservation-item');
+                const adresse = itemDiv?.dataset.adresse;
+                if (adresse) {
+                    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(adresse)}`;
+                    window.open(url, '_blank');
+                }
             });
         });
     }
 
-    function enregistrerDetails(idReservation, note, options, button) {
+    /**
+     * Appelle le backend pour marquer le nouveau statut d'une course.
+     */
+    function marquerStatut(idReservation, statut, button) {
         basculerIndicateurChargement(true);
         if (button) button.disabled = true;
-
-        const details = { idReservation, note, options };
 
         google.script.run
             .withSuccessHandler(reponse => {
                 basculerIndicateurChargement(false);
-                if (button) button.disabled = false;
                 if (reponse.success) {
-                    afficherNotification("Détails enregistrés !", "succes");
+                    afficherNotification(`Course marquée comme "${statut}"`, "succes");
+                    chargerReservations(); // Recharger la liste pour refléter le changement
                 } else {
+                    if (button) button.disabled = false;
                     afficherErreur(reponse.error);
                 }
             })
@@ -111,9 +150,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (button) button.disabled = false;
                 afficherErreur(err);
             })
-            .enregistrerDetailsLivraison(details);
+            .marquerStatutCourse(idReservation, statut);
     }
 
+    // --- Fonctions utilitaires ---
     function basculerIndicateurChargement(afficher) {
         const indicateur = document.getElementById('indicateur-chargement');
         if (indicateur) indicateur.classList.toggle('hidden', !afficher);
@@ -139,6 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error(erreur);
     }
 
+    // --- Point de départ ---
     initialiser();
 });
 </script>

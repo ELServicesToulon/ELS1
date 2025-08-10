@@ -18,10 +18,9 @@ function genererFactures() {
     const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
     const feuilleFacturation = ss.getSheetByName("Facturation");
     const feuilleClients = ss.getSheetByName("Clients");
-    const feuilleParams = ss.getSheetByName("Paramètres");
 
-    if (!feuilleFacturation || !feuilleClients || !feuilleParams) {
-      throw new Error("Une des feuilles requises ('Facturation', 'Clients', 'Paramètres') est introuvable.");
+    if (!feuilleFacturation || !feuilleClients) {
+      throw new Error("Une des feuilles requises ('Facturation', 'Clients') est introuvable.");
     }
 
     const indicesFacturation = obtenirIndicesEnTetes(feuilleFacturation, ['Date', 'Client (Email)', 'Valider', 'N° Facture', 'Montant', 'ID PDF', 'Détails', 'Note Interne', 'Lien Note']);
@@ -53,7 +52,7 @@ function genererFactures() {
       return acc;
     }, {});
 
-    let prochainNumFacture = parseInt(feuilleParams.getRange("B1").getValue(), 10);
+    let prochainNumFacture = CONFIG.PROCHAIN_NUMERO_FACTURE;
     const messagesErreurs = [];
     let compteurSucces = 0;
 
@@ -63,7 +62,7 @@ function genererFactures() {
         if (!clientInfos) throw new Error(`Client ${emailClient} non trouvé.`);
         
         const lignesFactureClient = facturesParClient[emailClient];
-        const numFacture = `FACT-${new Date().getFullYear()}-${String(prochainNumFacture).padStart(4, '0')}`;
+        const numFacture = `${CONFIG.PREFIXE_FACTURE}-${new Date().getFullYear()}-${String(prochainNumFacture).padStart(4, '0')}`;
         const dateFacture = new Date();
 
         let totalHT = 0;
@@ -164,7 +163,7 @@ function genererFactures() {
       }
     }
 
-    feuilleParams.getRange("B1").setValue(prochainNumFacture);
+    updateSingleConfigValue('PROCHAIN_NUMERO_FACTURE', prochainNumFacture);
     logAdminAction("Génération Factures", `Succès pour ${compteurSucces} client(s). Erreurs: ${messagesErreurs.length}`);
     
     const messageFinal = `${compteurSucces} facture(s) ont été générée(s) avec succès.\n\n` +
@@ -218,9 +217,13 @@ function obtenirReservationsAdmin(dateString = null) {
   const CONFIG = getConfiguration();
   try {
     const feuille = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Facturation");
-    const enTetes = ["Date", "Client (Email)", "Event ID", "Détails", "Client (Raison S. Client)", "ID Réservation", "Montant", "T° Statut", "Type Remise Appliquée", "Valeur Remise Appliquée", "Tournée Offerte Appliquée"];
+    const enTetes = ["Date", "Client (Email)", "Event ID", "Détails", "Client (Raison S. Client)", "ID Réservation", "Montant", "T° Statut", "Type Remise Appliquée", "Valeur Remise Appliquée", "Tournée Offerte Appliquée", "Nom Destinataire", "Adresse Destinataire"];
     const indices = obtenirIndicesEnTetes(feuille, enTetes);
     
+    // Cache des adresses des clients pour éviter les appels répétitifs
+    const clients = obtenirTousLesClients();
+    const mapAdressesClients = new Map(clients.map(c => [c.email, c.adresse]));
+
     const donnees = feuille.getDataRange().getValues();
     const dateFiltre = dateString ? new Date(dateString + "T00:00:00") : null;
     const dateFiltreString = dateFiltre ? Utilities.formatDate(dateFiltre, Session.getScriptTimeZone(), "yyyy-MM-dd") : null;
@@ -236,7 +239,7 @@ function obtenirReservationsAdmin(dateString = null) {
             return null;
           }
         }
-        return formaterReservationPourAdmin(ligne, indices);
+        return formaterReservationPourAdmin(ligne, indices, mapAdressesClients);
       })
       .filter(Boolean)
       .sort((a, b) => new Date(a.start) - new Date(b.start));
@@ -583,7 +586,7 @@ function appliquerRemiseReservation(idReservation, typeRemise, valeurRemise, nbT
   }
 }
 
-function formaterReservationPourAdmin(ligne, indices) {
+function formaterReservationPourAdmin(ligne, indices, mapAdressesClients) {
   const CONFIG = getConfiguration();
   try {
     const dateSheet = new Date(ligne[indices["Date"]]);
@@ -628,6 +631,10 @@ function formaterReservationPourAdmin(ligne, indices) {
       infoRemise = `-${valeurRemise.toFixed(2)}€`;
     }
 
+    const clientEmail = ligne[indices["Client (Email)"]];
+    const adresseDestinataire = ligne[indices["Adresse Destinataire"]];
+    const adresseFinale = adresseDestinataire || mapAdressesClients.get(clientEmail) || '';
+
     return {
       id: ligne[indices["ID Réservation"]],
       eventId: eventId,
@@ -635,7 +642,8 @@ function formaterReservationPourAdmin(ligne, indices) {
       end: dateFin.toISOString(),
       details: details,
       clientName: ligne[indices["Client (Raison S. Client)"]],
-      clientEmail: ligne[indices["Client (Email)"]],
+      clientEmail: clientEmail,
+      destinationAddress: adresseFinale,
       amount: parseFloat(ligne[indices["Montant"]]) || 0,
       km: Math.round(km),
       statut: ligne[indices["T° Statut"]],

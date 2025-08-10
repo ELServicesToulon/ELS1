@@ -3,6 +3,7 @@
 <head>
   <base target="_top">
   <meta charset="UTF-8">
+  <meta name="description" content="Espace dédié aux livreurs pour la consultation et la gestion des courses.">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Espace Livreur</title>
 
@@ -24,8 +25,26 @@
 
   <div class="conteneur-principal">
     <div class="carte barre-outils">
-      <label for="date-livraison">Afficher les courses pour le :</label>
-      <input type="date" id="date-livraison" class="champ-formulaire">
+      <div class="groupe-controle">
+        <label for="date-livraison">Date :</label>
+        <input type="date" id="date-livraison" class="champ-formulaire">
+      </div>
+      <div class="groupe-controle">
+        <label for="filtre-statut">Filtrer par :</label>
+        <select id="filtre-statut" class="champ-formulaire">
+          <option value="tous">Tous les statuts</option>
+          <option value="a-venir">À venir</option>
+          <option value="en-cours">En cours</option>
+          <option value="livre">Livré</option>
+        </select>
+      </div>
+      <div class="groupe-controle">
+        <label for="tri-courses">Trier par :</label>
+        <select id="tri-courses" class="champ-formulaire">
+          <option value="heure_asc">Heure (croissant)</option>
+          <option value="heure_desc">Heure (décroissant)</option>
+        </select>
+      </div>
     </div>
 
     <main id="contenu-reservations">

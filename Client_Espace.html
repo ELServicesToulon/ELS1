@@ -3,8 +3,19 @@
 <head>
   <base target="_top">
   <meta charset="UTF-8">
+  <meta name="description" content="Connectez-vous à votre espace client pour gérer vos réservations, consulter votre historique et modifier vos prochaines courses.">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mon Espace Client - Vos Réservations</title>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "<?= nomEntreprise ?>",
+    "url": "<?= appUrl ?>",
+    "logo": "<?= logoUrl ?>"
+  }
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,6 +44,25 @@
       </div>
       <div id="liste-reservations-passees" class="carte" style="margin-top: 20px;">
         <h3>Vos courses terminées</h3>
+        <div class="filtres-historique" style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--couleur-bordure);">
+          <label for="filtre-annee">Filtrer par :</label>
+          <select id="filtre-annee" class="champ-formulaire" style="width: auto;"></select>
+          <select id="filtre-mois" class="champ-formulaire" style="width: auto;">
+            <option value="0">Tous les mois</option>
+            <option value="1">Janvier</option>
+            <option value="2">Février</option>
+            <option value="3">Mars</option>
+            <option value="4">Avril</option>
+            <option value="5">Mai</option>
+            <option value="6">Juin</option>
+            <option value="7">Juillet</option>
+            <option value="8">Août</option>
+            <option value="9">Septembre</option>
+            <option value="10">Octobre</option>
+            <option value="11">Novembre</option>
+            <option value="12">Décembre</option>
+          </select>
+        </div>
         <div id="contenu-reservations-passees">
           <!-- Les réservations passées seront injectées ici par le script JS -->
         </div>

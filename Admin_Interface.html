@@ -31,6 +31,8 @@
       </div>
       <button id="btn-tout-voir" class="btn btn-secondaire">Toutes les courses</button>
       <div>
+        <a href="<?= ScriptApp.getService().getUrl() ?>?page=admin-docs" class="btn btn-secondaire">Docs</a>
+        <a href="<?= ScriptApp.getService().getUrl() ?>?page=diagnostic" class="btn btn-secondaire">Diagnostic</a>
         <a href="<?= ScriptApp.getService().getUrl() ?>?page=admin_config" class="btn btn-secondaire">Configuration</a>
         <button id="btn-ajouter-reservation" class="btn btn-primaire">Ajouter une course</button>
       </div>
@@ -42,8 +44,19 @@
         <div id="contenu-reservations">
           <p>Veuillez sélectionner une date pour afficher les livraisons.</p>
         </div>
+        <div id="conteneur-pagination" class="hidden" style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-top: 20px;">
+            <!-- Les contrôles de pagination seront injectés ici -->
+        </div>
       </div>
     </main>
+
+    <div class="carte">
+        <h3>Informations Administratives</h3>
+        <p><strong>SIRET :</strong> <?= siret ?></p>
+        <p><strong>RIB :</strong> <?= rib ?></p>
+        <p><strong>BIC :</strong> <?= bic ?></p>
+        <small>Ces informations sont gérées depuis l'objet de configuration central (`Configuration.gs`).</small>
+    </div>
 
   </div>
 

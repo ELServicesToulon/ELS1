@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentation Administrateur</title>
+
+  <?!= include('Admin_CSS'); ?>
+  <style>
+    .conteneur-docs {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 1rem;
+    }
+    .conteneur-docs .carte {
+        padding: 2rem;
+    }
+    .conteneur-docs h2 {
+      border-bottom: 1px solid var(--couleur-bordure);
+      padding-bottom: 0.5rem;
+      margin-top: 2rem;
+    }
+    .conteneur-docs code {
+      background-color: #e9ecef;
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+    .app-en-tete a {
+        text-decoration: none;
+        font-weight: normal;
+        color: var(--couleur-action);
+    }
+  </style>
+</head>
+<body>
+  <div class="conteneur-docs">
+    <header class="app-en-tete" style="margin-bottom: 2rem;">
+        <h1>Documentation Administrateur</h1>
+        <a href="<?= ScriptApp.getService().getUrl() ?>?page=admin">Retour au tableau de bord</a>
+    </header>
+
+    <main class="carte">
+        <h2>Principe de fonctionnement</h2>
+        <p>Cette application web est construite sur Google Apps Script et utilise les services Google (Sheets, Docs, Calendar, Drive) comme backend.</p>
+
+        <h2>Gestion des Réservations</h2>
+        <p>Les réservations sont ajoutées au calendrier principal et enregistrées dans la feuille de calcul `Facturation`.</p>
+
+        <h2>Gestion de la Configuration</h2>
+        <p>La configuration principale se trouve dans le fichier <strong>Configuration.gs</strong>. Les surcharges dynamiques (comme les tarifs modifiés depuis l'interface) sont stockées dans `PropertiesService`.</p>
+        <p>Pour modifier un tarif ou le délai de modification client, utilisez la page de <a href="<?= ScriptApp.getService().getUrl() ?>?page=admin_config">Configuration</a>.</p>
+
+        <h2>Sauvegardes</h2>
+        <p>Les sauvegardes automatiques du code et des données sont gérées par des déclencheurs (triggers). Vous pouvez les installer ou les mettre à jour depuis le menu <strong>EL Services > Maintenance > Installer/Mettre à jour les sauvegardes auto</strong> dans le Google Sheet associé.</p>
+
+        <h2>Diagnostic</h2>
+        <p>Une <a href="<?= ScriptApp.getService().getUrl() ?>?page=diagnostic">page de diagnostic</a> est disponible pour vérifier l'état des services Google et des quotas.</p>
+    </main>
+  </div>
+</body>
+</html>

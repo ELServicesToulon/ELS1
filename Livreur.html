@@ -5,21 +5,102 @@
  */
 
 /**
- * Récupère les réservations pour un livreur pour une date donnée.
- * Pour l'instant, retourne les mêmes données que pour l'admin.
+ * Récupère les réservations pour un livreur pour une date donnée, avec options de filtre et de tri.
  * @param {string} dateString La date au format YYYY-MM-DD.
+ * @param {Object} options Un objet contenant {filtreStatut: string, tri: string}.
  * @returns {Object} Un objet contenant les réservations.
  */
-function getReservationsPourLivreur(dateString) {
+function getReservationsPourLivreur(dateString, options = {}) {
     const userEmail = Session.getActiveUser().getEmail();
     if (!isUserLivreur(userEmail) && !isUserAdmin(userEmail)) {
         return { success: false, error: "Accès non autorisé." };
     }
 
-    // Pour l'instant, on réutilise la même fonction que l'admin, car elle est maintenant sécurisée.
-    // On pourra la spécialiser plus tard si besoin pour ne retourner que les champs nécessaires.
-    return obtenirToutesReservationsPourDate(dateString);
+    // On récupère toutes les réservations pour la date donnée.
+    const reponseBase = obtenirToutesReservationsPourDate(dateString);
+    if (!reponseBase.success) {
+        return reponseBase;
+    }
+
+    let reservations = reponseBase.reservations;
+
+    // 1. Appliquer le filtre par statut
+    if (options.filtreStatut && options.filtreStatut !== 'tous') {
+        reservations = reservations.filter(r => r.statut && r.statut.toLowerCase().replace(/[\s_]+/g, '-') === options.filtreStatut);
+    }
+
+    // 2. Appliquer le tri
+    if (options.tri === 'heure_desc') {
+        reservations.sort((a, b) => new Date(b.start) - new Date(a.start));
+    } else {
+        // Le tri par défaut est déjà par heure ascendante (heure_asc)
+        reservations.sort((a, b) => new Date(a.start) - new Date(b.start));
+    }
+
+    return { success: true, reservations: reservations };
 }
+
+/**
+ * Met à jour le statut d'une course et enregistre l'horodatage de l'action.
+ * @param {string} idReservation L'ID de la réservation à mettre à jour.
+ * @param {string} statut Le nouveau statut à appliquer (ex: 'En cours', 'Livré').
+ * @returns {Object} Un objet indiquant le succès de l'opération.
+ */
+function marquerStatutCourse(idReservation, statut) {
+    const userEmail = Session.getActiveUser().getEmail();
+    if (!isUserLivreur(userEmail) && !isUserAdmin(userEmail)) {
+        return { success: false, error: "Accès non autorisé." };
+    }
+
+    if (!idReservation || !statut) {
+        return { success: false, error: "ID de réservation ou statut manquant." };
+    }
+
+    try {
+        const ss = SpreadsheetApp.openById(getConfiguration().ID_FEUILLE_CALCUL);
+        const sheet = ss.getSheetByName("Facturation");
+        if (!sheet) throw new Error("La feuille 'Facturation' est introuvable.");
+
+        const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+        const idResaIndex = headers.indexOf("ID Réservation");
+        const statutIndex = headers.indexOf("T° Statut");
+        let horodatageIndex = headers.indexOf("Horodatage Statut");
+
+        // Ajoute la colonne d'horodatage si elle n'existe pas
+        if (horodatageIndex === -1) {
+            sheet.getRange(1, headers.length + 1).setValue("Horodatage Statut");
+            horodatageIndex = headers.length;
+        }
+
+        if (idResaIndex === -1 || statutIndex === -1) {
+            throw new Error("Colonnes 'ID Réservation' ou 'T° Statut' introuvables.");
+        }
+
+        const data = sheet.getRange(2, idResaIndex + 1, sheet.getLastRow() - 1, 1).getValues();
+        let rowIndex = -1;
+        for (let i = 0; i < data.length; i++) {
+            if (data[i][0] === idReservation) {
+                rowIndex = i + 2; // +2 car on commence à la ligne 2 et l'index est 0-based
+                break;
+            }
+        }
+
+        if (rowIndex === -1) {
+            return { success: false, error: "Réservation introuvable." };
+        }
+
+        sheet.getRange(rowIndex, statutIndex + 1).setValue(statut);
+        sheet.getRange(rowIndex, horodatageIndex + 1).setValue(new Date());
+
+        logAdminAction(`Mise à jour statut`, `Course ${idReservation} marquée comme '${statut}' par ${userEmail}`);
+        return { success: true, nouveauStatut: statut };
+
+    } catch (e) {
+        Logger.log(`Erreur dans marquerStatutCourse : ${e.stack}`);
+        return { success: false, error: e.message };
+    }
+}
+
 
 /**
  * Enregistre les détails de livraison (note, options) pour une réservation.
@@ -59,7 +140,33 @@ function enregistrerDetailsLivraison(details) {
 
         const missingHeaders = Object.entries(indices).filter(([key, value]) => value === -1).map(([key]) => key);
         if (missingHeaders.length > 0) {
-            throw new Error(`Colonnes manquantes dans la feuille 'Facturation': ${missingHeaders.join(', ')}`);
+            // Tente de créer les colonnes manquantes
+            const sheetHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+            const newHeaders = sheetHeaders.getValues()[0];
+            missingHeaders.forEach(key => {
+                const headerName = indices[key]; // This is wrong, key is the name
+                let headerText = '';
+                if(key === 'note') headerText = 'Note Livreur';
+                else if(key === 'frigo') headerText = 'Livreur Frigo';
+                else if(key === 'tampon') headerText = 'Livreur Tampon';
+                else if(key === 'reprise') headerText = 'Livreur Reprise';
+                else if(key === 'extras') headerText = 'Livreur Extras';
+
+                if (headerText && !newHeaders.includes(headerText)) {
+                    sheet.getRange(1, newHeaders.length + 1).setValue(headerText);
+                    newHeaders.push(headerText);
+                }
+            });
+             // Re-fetch indices
+            missingHeaders.forEach(key => {
+                let headerText = '';
+                if(key === 'note') headerText = 'Note Livreur';
+                else if(key === 'frigo') headerText = 'Livreur Frigo';
+                else if(key === 'tampon') headerText = 'Livreur Tampon';
+                else if(key === 'reprise') headerText = 'Livreur Reprise';
+                else if(key === 'extras') headerText = 'Livreur Extras';
+                indices[key] = newHeaders.indexOf(headerText);
+            });
         }
 
         const rowIndex = data.findIndex(row => row[indices.idResa] === idReservation);

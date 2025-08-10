@@ -8,8 +8,12 @@ Description: Ce fichier contient le code SVG du logo de l'entreprise.
 =================================================================
 -->
 <div class="app-logo-container">
+  <?
+    // On s'assure que la variable nomService ou nomEntreprise existe pour l'utiliser dans le alt text
+    const nomEntr = typeof nomService !== 'undefined' ? nomService : (typeof nomEntreprise !== 'undefined' ? nomEntreprise : "l'entreprise");
+  ?>
   <? if (typeof logoCompletClairBase64 !== 'undefined' && logoCompletClairBase64 && logoCompletClairBase64 !== 'PLACEHOLDER_BASE64_LOGO_STRING') { ?>
-    <img src="<?= logoCompletClairBase64 ?>" alt="Logo de l'entreprise" style="height: 50px; width: auto;">
+    <img src="<?= logoCompletClairBase64 ?>" alt="Logo de <?= nomEntr ?>" style="height: 50px; width: auto;">
   <? } else { ?>
     <!--
       Logo Complet (pour les en-têtes de page)
@@ -27,7 +31,7 @@ Description: Ce fichier contient le code SVG du logo de l'entreprise.
       </defs>
       <path d="M 60 40 C 40 40, 40 70, 60 70 M 60 55 L 30 55 M 60 70 C 80 70, 90 60, 85 45 Q 95 55 105 50" stroke="url(#airyGradient)" stroke-width="4" stroke-linecap="round" fill="none"/>
       <g text-anchor="start">
-          <text x="120" y="62" font-family="Lato, sans-serif" font-size="28" font-weight="700" fill="#212529">ELS</text>
+          <text x="120" y="62" font-family="Montserrat, sans-serif" font-size="28" font-weight="700" fill="#212529">ELS</text>
       </g>
     </svg>
   <? } ?>
