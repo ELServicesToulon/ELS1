@@ -23,7 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Variables d'état ---
     let toutesLesReservationsAffichees = [];
     let tousLesClients = [];
-    let vueActuelle = 'date'; 
+    let vueActuelle = 'date';
+    let pageActuelle = 1;
+    const RESERVATIONS_PAR_PAGE = 15;
+    const conteneurPagination = document.getElementById('conteneur-pagination');
+
 
     /**
      * Initialise le tableau de bord.
@@ -53,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dateString) return;
         vueActuelle = 'date';
         basculerIndicateurChargement(true);
+        conteneurPagination.classList.add('hidden');
         
         if (contenuReservations) contenuReservations.innerHTML = '<p>Chargement des courses...</p>';
         const date = new Date(dateString + "T00:00:00");
@@ -65,7 +70,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 basculerIndicateurChargement(false);
                 if (reponse.success) {
                     toutesLesReservationsAffichees = reponse.reservations;
-                    afficherReservations(toutesLesReservationsAffichees, false);
+                    // Affichage sans pagination pour la vue par date
+                    afficherReservations(toutesLesReservationsAffichees, false, 1);
                 } else {
                     afficherErreur(reponse.error);
                 }
@@ -88,7 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 basculerIndicateurChargement(false);
                 if (reponse.success) {
                     toutesLesReservationsAffichees = reponse.reservations;
-                    afficherReservations(toutesLesReservationsAffichees, true);
+                    pageActuelle = 1; // Réinitialiser à la première page
+                    afficherReservations(toutesLesReservationsAffichees, true, pageActuelle);
                 } else {
                     afficherErreur(reponse.error);
                 }
@@ -127,53 +134,109 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Affiche les réservations.
+     * Affiche les réservations, avec une logique de pagination pour la vue "toutes".
      */
-    function afficherReservations(reservations, montrerDate = false) {
+    function afficherReservations(reservations, montrerDate = false, page = 1) {
         if (!contenuReservations) return;
+
+        pageActuelle = page;
+        conteneurPagination.classList.toggle('hidden', !montrerDate || reservations.length <= RESERVATIONS_PAR_PAGE);
+
         if (reservations.length === 0) {
             contenuReservations.innerHTML = '<p>Aucune course à afficher.</p>';
             return;
         }
 
-        const groupeParClient = reservations.reduce((acc, resa) => {
-            const clientKey = `${resa.clientName} (${resa.clientEmail})`;
-            if (!acc[clientKey]) acc[clientKey] = [];
-            acc[clientKey].push(resa);
-            return acc;
-        }, {});
-
         let html = '';
-        for (const nomClient in groupeParClient) {
-            html += `<div class="groupe-client"><div class="groupe-client-en-tete">${nomClient}</div>`;
-            groupeParClient[nomClient].forEach(resa => {
-                const dateDebut = new Date(resa.start);
-                const heureDebut = dateDebut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                const dateAffichee = dateDebut.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                const prix = typeof resa.amount === 'number' ? resa.amount.toFixed(2) : 'N/A';
-                const infoRemiseHtml = resa.infoRemise ? `<span class="info-remise">${resa.infoRemise}</span>` : '';
-                const dateHtml = montrerDate ? `<strong>${dateAffichee}</strong> &agrave; ` : '';
-                const statutHtml = resa.statut ? `<span class="statut-badge" style="background-color: #7f8c8d; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px;">${resa.statut}</span>` : '';
+        // Si on ne montre pas la date (vue par jour), on groupe par client
+        if (!montrerDate) {
+            const groupeParClient = reservations.reduce((acc, resa) => {
+                const clientKey = `${resa.clientName} (${resa.clientEmail})`;
+                if (!acc[clientKey]) acc[clientKey] = [];
+                acc[clientKey].push(resa);
+                return acc;
+            }, {});
+            for (const nomClient in groupeParClient) {
+                html += `<div class="groupe-client"><div class="groupe-client-en-tete">${nomClient}</div>`;
+                groupeParClient[nomClient].forEach(resa => {
+                    html += genererHtmlReservation(resa, false);
+                });
+                html += `</div>`;
+            }
+        } else {
+            // Si on montre la date (vue "toutes"), on pagine la liste à plat
+            const debut = (page - 1) * RESERVATIONS_PAR_PAGE;
+            const fin = debut + RESERVATIONS_PAR_PAGE;
+            const reservationsPage = reservations.slice(debut, fin);
 
-                html += `
-                    <div class="carte-reservation">
-                        <div class="carte-heure">${dateHtml}${heureDebut}</div>
-                        <div class="carte-details" tabindex="0" role="group" aria-label="Détails de la course">
-                            <strong>${resa.details}</strong>
-                            <small>${prix} € ${infoRemiseHtml} (~${resa.km} km) ${statutHtml}</small>
-                        </div>
-                        <div class="carte-actions">
-                            <button class="btn btn-sm btn-secondaire btn-modifier" data-id-reservation="${resa.id}">Modifier</button>
-                            <button class="btn btn-sm btn-secondaire btn-replanifier" data-id-reservation="${resa.id}">Déplacer</button>
-                            <button class="btn btn-sm btn-appliquer-remise" data-id-reservation="${resa.id}">Remise</button>
-                            <button class="btn btn-sm btn-erreur btn-supprimer" data-id-reservation="${resa.id}">Supprimer</button>
-                        </div>
-                    </div>`;
+            html += '<div class="liste-simple">'; // Conteneur pour la liste simple
+            reservationsPage.forEach(resa => {
+                html += genererHtmlReservation(resa, true);
             });
-            html += `</div>`;
+            html += '</div>';
+            afficherPagination(reservations.length, page);
         }
+
         contenuReservations.innerHTML = html;
         attacherEcouteursActions();
+    }
+
+    /**
+     * Génère le HTML pour une seule réservation.
+     */
+    function genererHtmlReservation(resa, montrerDate) {
+        const dateDebut = new Date(resa.start);
+        const heureDebut = dateDebut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        const dateAffichee = dateDebut.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const prix = typeof resa.amount === 'number' ? resa.amount.toFixed(2) : 'N/A';
+        const infoRemiseHtml = resa.infoRemise ? `<span class="info-remise">${resa.infoRemise}</span>` : '';
+        const dateHtml = montrerDate ? `<strong>${dateAffichee}</strong> &agrave; ` : '';
+        const statutHtml = resa.statut ? `<span class="statut-badge" style="background-color: #7f8c8d; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px;">${resa.statut}</span>` : '';
+
+        return `
+            <div class="carte-reservation">
+                <div class="carte-heure">${dateHtml}${heureDebut}</div>
+                <div class="carte-details" tabindex="0" role="group" aria-label="Détails de la course">
+                    <strong>${resa.clientName}</strong>: ${resa.details}
+                    <small>${prix} € ${infoRemiseHtml} (~${resa.km} km) ${statutHtml}</small>
+                </div>
+                <div class="carte-actions">
+                    <button class="btn btn-sm btn-secondaire btn-modifier" data-id-reservation="${resa.id}">Modifier</button>
+                    <button class="btn btn-sm btn-secondaire btn-replanifier" data-id-reservation="${resa.id}">Déplacer</button>
+                    <button class="btn btn-sm btn-appliquer-remise" data-id-reservation="${resa.id}">Remise</button>
+                    <button class="btn btn-sm btn-erreur btn-supprimer" data-id-reservation="${resa.id}">Supprimer</button>
+                </div>
+            </div>`;
+    }
+
+    /**
+     * Affiche les contrôles de pagination.
+     */
+    function afficherPagination(totalReservations, page) {
+        if (!conteneurPagination) return;
+        const totalPages = Math.ceil(totalReservations / RESERVATIONS_PAR_PAGE);
+        if (totalPages <= 1) {
+            conteneurPagination.innerHTML = '';
+            return;
+        }
+
+        conteneurPagination.innerHTML = `
+            <button id="btn-page-precedente" class="btn btn-secondaire" ${page === 1 ? 'disabled' : ''}>Précédent</button>
+            <span>Page ${page} sur ${totalPages}</span>
+            <button id="btn-page-suivante" class="btn btn-secondaire" ${page === totalPages ? 'disabled' : ''}>Suivant</button>
+        `;
+
+        document.getElementById('btn-page-precedente')?.addEventListener('click', () => {
+            if (pageActuelle > 1) {
+                afficherReservations(toutesLesReservationsAffichees, true, pageActuelle - 1);
+            }
+        });
+
+        document.getElementById('btn-page-suivante')?.addEventListener('click', () => {
+            if (pageActuelle < totalPages) {
+                afficherReservations(toutesLesReservationsAffichees, true, pageActuelle + 1);
+            }
+        });
     }
 
     /**
@@ -514,7 +577,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function afficherErreur(erreur) {
         basculerIndicateurChargement(false);
         const message = typeof erreur === 'object' && erreur.message ? erreur.message : String(erreur);
+
+        // Affiche une notification "toast"
         afficherNotification(`Erreur : ${message}`, "erreur");
+
+        // Affiche un message dans la zone de contenu principale
+        if (contenuReservations) {
+            contenuReservations.innerHTML = `<p style="color: var(--couleur-erreur); padding: 20px; text-align: center;">Impossible de charger les données : ${message}</p>`;
+        }
+
         console.error(erreur);
     }
 

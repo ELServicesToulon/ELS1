@@ -71,7 +71,11 @@ body {
 .jour-calendrier:not(.desactive):hover { background-color: #f1eaf5; border-color: var(--couleur-principale); }
 .jour-calendrier.desactive { color: #ccc; cursor: not-allowed; background-color: #fdfdfd; }
 .barre-disponibilite { height: 4px; background-color: #e0e0e0; border-radius: 2px; margin: 5px auto 0; overflow: hidden; max-width: 80%; }
-.barre-disponibilite div { height: 100%; background-color: var(--couleur-succes); }
+.barre-disponibilite div {
+  height: 100%;
+  background-image: linear-gradient(to right, var(--couleur-options), var(--couleur-principale));
+  transition: width 0.4s ease-in-out;
+}
 
 /* --- PANIER --- */
 #liste-panier { list-style: none; padding: 0; margin: 0; }
