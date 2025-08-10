@@ -46,6 +46,11 @@ function doGet(e) {
                 const adminEmail = Session.getActiveUser().getEmail();
                 if (adminEmail && adminEmail.toLowerCase() === CONFIG.ADMIN_EMAIL.toLowerCase()) {
                     const template = HtmlService.createTemplateFromFile('Admin_Interface');
+                    template.config = JSON.stringify({
+                      DUREE_BASE: CONFIG.DUREE_BASE,
+                      DUREE_ARRET_SUP: CONFIG.DUREE_ARRET_SUP,
+                      TARIFS: CONFIG.TARIFS
+                    });
                     return template.evaluate().setTitle("Tableau de Bord Administrateur").setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
                 } else {
                     return HtmlService.createHtmlOutput('<h1>Accès Refusé</h1><p>Vous n\'avez pas les permissions nécessaires.</p>');
@@ -93,6 +98,7 @@ function doGet(e) {
     template.heureDebut = CONFIG.HEURE_DEBUT_SERVICE;
     template.heureFin = CONFIG.HEURE_FIN_SERVICE;
     template.prixBase = CONFIG.TARIFS['Normal'].base;
+    template.tarifs = CONFIG.TARIFS;
 
     return template.evaluate()
         .setTitle(CONFIG.NOM_ENTREPRISE + " | Réservation")

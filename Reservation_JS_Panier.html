@@ -87,7 +87,7 @@ function afficherPanier() {
   ui.listePanier.innerHTML = panier.map(item => {
     const date = new Date(item.date + 'T00:00:00');
     const dateFormatee = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-    const recurrenceInfo = item.isRecurrent ? '<small style="color: #6a0dad; display: block;">(Récurrence mensuelle)</small>' : '';
+    const recurrenceInfo = item.isRecurrent ? '<small style="color: #8e44ad; display: block;">(Récurrence mensuelle)</small>' : '';
     
     return `
       <li class="item-panier" data-id-item="${item.id}">
@@ -110,7 +110,7 @@ function afficherPanier() {
   if (parrainageApplique.code) {
       const messageRemise = document.createElement('small');
       messageRemise.className = 'message-remise-parrainage'; // Pour pouvoir le retrouver
-      messageRemise.style.color = 'green';
+      messageRemise.style.color = '#3498db';
       messageRemise.style.display = 'block';
       messageRemise.style.marginTop = '4px';
       messageRemise.textContent = 'Une remise sera appliquée sur le total final.';

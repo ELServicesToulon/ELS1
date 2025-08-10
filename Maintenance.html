@@ -308,9 +308,9 @@ function verifierCoherenceCalendrier() {
     
     let rapportHtml = `<h1>Rapport de cohérence Calendrier</h1><p><strong>${reservationsVerifiees}</strong> réservations analysées.</p>`;
     if (incoherences.length === 0) {
-      rapportHtml += `<p style="color: green;"><strong>Aucune incohérence trouvée.</strong></p>`;
+      rapportHtml += `<p style="color: #3498db;"><strong>Aucune incohérence trouvée.</strong></p>`;
     } else {
-      rapportHtml += `<p style="color: red;"><strong>${incoherences.length} incohérence(s) détectée(s) :</strong></p><pre>${incoherences.join('<br>')}</pre>`;
+      rapportHtml += `<p style="color: #c0392b;"><strong>${incoherences.length} incohérence(s) détectée(s) :</strong></p><pre>${incoherences.join('<br>')}</pre>`;
     }
     
     const output = HtmlService.createHtmlOutput(rapportHtml).setWidth(600).setHeight(400);
