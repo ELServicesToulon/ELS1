@@ -23,8 +23,10 @@ function onOpen() {
       .addItem("Lancer un audit des partages Drive", "lancerAuditDrive");
 
   const sousMenuMaintenance = ui.createMenu('Maintenance')
-      .addItem("Sauvegarder le code du projet", "sauvegarderCodeProjet")
-      .addItem("Sauvegarder les données", "sauvegarderDonnees")
+      .addItem("Installer/Mettre à jour les sauvegardes auto", "installerTriggersAutomatiques")
+      .addSeparator()
+      .addItem("Sauvegarder le code du projet (manuel)", "sauvegarderCodeProjet")
+      .addItem("Sauvegarder les données (manuel)", "sauvegarderDonnees")
       .addItem("Purger les anciennes données (RGPD)", "purgerAnciennesDonnees");
       
   const sousMenuDebug = ui.createMenu('Debug')
@@ -52,6 +54,9 @@ function doGet(e) {
                       DUREE_ARRET_SUP: CONFIG.DUREE_ARRET_SUP,
                       TARIFS: CONFIG.TARIFS
                     });
+                    template.siret = CONFIG.SIRET;
+                    template.rib = CONFIG.RIB_ENTREPRISE;
+                    template.bic = CONFIG.BIC_ENTREPRISE;
                     return template.evaluate().setTitle("Tableau de Bord Administrateur").setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
                 } else {
                     return HtmlService.createHtmlOutput('<h1>Accès Refusé</h1><p>Vous n\'avez pas les permissions nécessaires.</p>');
@@ -64,7 +69,10 @@ function doGet(e) {
                 }
             case 'gestion':
                 const templateGestion = HtmlService.createTemplateFromFile('Client_Espace');
-                templateGestion.ADMIN_EMAIL = CONFIG.ADMIN_EMAIL;
+                templateGestion.nomEntreprise = CONFIG.NOM_ENTREPRISE;
+                templateGestion.appUrl = ScriptApp.getService().getUrl();
+                // Assurez-vous que le logo est une URL publique ou une data URI pour être utilisable dans JSON-LD
+                templateGestion.logoUrl = CONFIG.logoCompletClairBase64;
                 return templateGestion.evaluate().setTitle("Mon Espace Client").setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
             case 'livreur':
                 // Vérifie si l'email du livreur est dans la liste des emails autorisés (insensible à la casse)
@@ -89,6 +97,9 @@ function doGet(e) {
     const template = HtmlService.createTemplateFromFile('Reservation_Interface');
     template.appUrl = ScriptApp.getService().getUrl();
     template.nomService = CONFIG.NOM_ENTREPRISE;
+    template.logoUrl = CONFIG.logoCompletClairBase64;
+    template.adresse = CONFIG.ADRESSE_ENTREPRISE;
+    template.email = CONFIG.EMAIL_ENTREPRISE;
     template.TARIFS_JSON = JSON.stringify(CONFIG.TARIFS);
     template.DUREE_BASE = CONFIG.DUREE_BASE;
     template.DUREE_ARRET_SUP = CONFIG.DUREE_ARRET_SUP;

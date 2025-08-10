@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 html += `
                     <div class="carte-reservation">
                         <div class="carte-heure">${dateHtml}${heureDebut}</div>
-                        <div class="carte-details">
+                        <div class="carte-details" tabindex="0" role="group" aria-label="Détails de la course">
                             <strong>${resa.details}</strong>
                             <small>${prix} € ${infoRemiseHtml} (~${resa.km} km) ${statutHtml}</small>
                         </div>

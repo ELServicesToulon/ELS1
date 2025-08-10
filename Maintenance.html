@@ -325,7 +325,50 @@ function verifierCoherenceCalendrier() {
 }
 
 // =================================================================
-//                      5. INITIALISATION
+//                   4. GESTION DES DÉCLENCHEURS (TRIGGERS)
+// =================================================================
+
+/**
+ * Installe les déclencheurs temporels pour les sauvegardes automatiques.
+ * Supprime les anciens déclencheurs pour éviter les doublons.
+ */
+function installerTriggersAutomatiques() {
+  const nomFonctions = ["sauvegarderDonnees", "sauvegarderCodeProjet", "purgerTokensExpires"];
+
+  // Supprimer les anciens déclencheurs pour ces fonctions
+  const tousLesTriggers = ScriptApp.getProjectTriggers();
+  tousLesTriggers.forEach(trigger => {
+    if (nomFonctions.includes(trigger.getHandlerFunction())) {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  // Créer les nouveaux déclencheurs
+  ScriptApp.newTrigger("sauvegarderDonnees")
+    .timeBased()
+    .atHour(2) // Vers 2h du matin
+    .everyDays(1)
+    .create();
+
+  ScriptApp.newTrigger("sauvegarderCodeProjet")
+    .timeBased()
+    .atHour(3) // Vers 3h du matin
+    .everyDays(1)
+    .create();
+
+  ScriptApp.newTrigger("purgerTokensExpires")
+    .timeBased()
+    .atHour(4) // Vers 4h du matin
+    .everyDays(1)
+    .create();
+
+  SpreadsheetApp.getUi().alert("Les déclencheurs de sauvegarde et de maintenance quotidiens ont été installés avec succès.");
+  logAdminAction("Installation Triggers", "Succès");
+}
+
+
+// =================================================================
+//                      5. AUDIT & VÉRIFICATION (Anciennement 4)
 // =================================================================
 
 /**

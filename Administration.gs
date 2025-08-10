@@ -18,10 +18,9 @@ function genererFactures() {
     const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
     const feuilleFacturation = ss.getSheetByName("Facturation");
     const feuilleClients = ss.getSheetByName("Clients");
-    const feuilleParams = ss.getSheetByName("Paramètres");
 
-    if (!feuilleFacturation || !feuilleClients || !feuilleParams) {
-      throw new Error("Une des feuilles requises ('Facturation', 'Clients', 'Paramètres') est introuvable.");
+    if (!feuilleFacturation || !feuilleClients) {
+      throw new Error("Une des feuilles requises ('Facturation', 'Clients') est introuvable.");
     }
 
     const indicesFacturation = obtenirIndicesEnTetes(feuilleFacturation, ['Date', 'Client (Email)', 'Valider', 'N° Facture', 'Montant', 'ID PDF', 'Détails', 'Note Interne', 'Lien Note']);
@@ -53,7 +52,7 @@ function genererFactures() {
       return acc;
     }, {});
 
-    let prochainNumFacture = parseInt(feuilleParams.getRange("B1").getValue(), 10);
+    let prochainNumFacture = CONFIG.PROCHAIN_NUMERO_FACTURE;
     const messagesErreurs = [];
     let compteurSucces = 0;
 
@@ -63,7 +62,7 @@ function genererFactures() {
         if (!clientInfos) throw new Error(`Client ${emailClient} non trouvé.`);
         
         const lignesFactureClient = facturesParClient[emailClient];
-        const numFacture = `FACT-${new Date().getFullYear()}-${String(prochainNumFacture).padStart(4, '0')}`;
+        const numFacture = `${CONFIG.PREFIXE_FACTURE}-${new Date().getFullYear()}-${String(prochainNumFacture).padStart(4, '0')}`;
         const dateFacture = new Date();
 
         let totalHT = 0;
@@ -164,7 +163,7 @@ function genererFactures() {
       }
     }
 
-    feuilleParams.getRange("B1").setValue(prochainNumFacture);
+    updateSingleConfigValue('PROCHAIN_NUMERO_FACTURE', prochainNumFacture);
     logAdminAction("Génération Factures", `Succès pour ${compteurSucces} client(s). Erreurs: ${messagesErreurs.length}`);
     
     const messageFinal = `${compteurSucces} facture(s) ont été générée(s) avec succès.\n\n` +

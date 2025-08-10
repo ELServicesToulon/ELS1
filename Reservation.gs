@@ -48,6 +48,15 @@ function reserverPanier(donneesReservation) {
     if (!clientPourCalcul) {
         enregistrerOuMajClient(client);
         clientPourCalcul = { email: client.email, nom: client.nom, adresse: client.adresse, siret: client.siret, typeRemise: '', valeurRemise: 0, nbTourneesOffertes: 0 };
+
+        // Enregistrer le consentement RGPD pour le nouvel utilisateur
+        if (donneesReservation.consentement && donneesReservation.consentement.donne) {
+            enregistrerConsentementRGPD(
+                client.email,
+                donneesReservation.consentement.texte,
+                "Formulaire Réservation - Nouvel Utilisateur"
+            );
+        }
     } else {
         enregistrerOuMajClient(client);
     }
