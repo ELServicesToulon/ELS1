@@ -41,13 +41,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         reservations.forEach(resa => {
             const resaElement = document.createElement('div');
-            resaElement.className = 'carte reservation-item';
+            const statutClass = `statut-${(resa.statut || 'a-venir').toLowerCase().replace(/[\s_]+/g, '-')}`;
+            resaElement.className = `carte reservation-item ${statutClass}`;
             resaElement.dataset.id = resa.id;
 
             const heureDebut = new Date(resa.start).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            const statutHtml = resa.statut ? `<span class="statut-badge">${resa.statut}</span>` : '';
 
             resaElement.innerHTML = `
-                <h4>${heureDebut} - ${resa.clientName}</h4>
+                <h4>${heureDebut} - ${resa.clientName} ${statutHtml}</h4>
                 <p>${resa.details}</p>
                 <div class="details-livraison">
                   <div class="groupe-formulaire">

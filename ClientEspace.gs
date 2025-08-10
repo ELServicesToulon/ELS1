@@ -10,7 +10,7 @@
  * @returns {Object} Un objet de statut.
  */
 function demanderLienDeConnexion(email) {
-  if (!email || !/S+@S+.S+/.test(email)) {
+  if (!email || !/\S+@\S+\.\S+/.test(email)) {
     return { success: false, message: "Veuillez fournir une adresse e-mail valide." };
   }
 
@@ -207,4 +207,31 @@ function validerTokenClient(token, idReservation) {
   }
 
   return null;
+}
+
+/**
+ * Enregistre le consentement d'un client dans une feuille de calcul dédiée.
+ * @param {string} email L'e-mail du client.
+ * @param {string} consentText Le texte de la case à cocher de consentement.
+ * @param {string} source La source de l'action (ex: "Formulaire Réservation").
+ */
+function enregistrerConsentementRGPD(email, consentText, source) {
+  try {
+    const CONFIG = getConfiguration();
+    const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
+    let journalSheet = ss.getSheetByName("Journal_RGPD");
+
+    if (!journalSheet) {
+      journalSheet = ss.insertSheet("Journal_RGPD");
+      journalSheet.appendRow(["Date", "Email Client", "Texte Consentement", "Source"]);
+      journalSheet.setFrozenRows(1);
+    }
+
+    journalSheet.appendRow([new Date(), email, consentText, source]);
+    Logger.log(`Consentement RGPD enregistré pour ${email} depuis ${source}`);
+
+  } catch (e) {
+    Logger.log(`Erreur lors de l'enregistrement du consentement RGPD pour ${email}: ${e.stack}`);
+    // Ne pas bloquer l'utilisateur pour une erreur de log
+  }
 }

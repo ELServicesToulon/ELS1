@@ -29,10 +29,11 @@ body {
 }
 
 /* --- ACCESSIBILITÉ : Style pour le focus clavier --- */
-.btn:focus, .champ-formulaire:focus, .btn-fermer:focus {
+:focus-visible {
   outline: 3px solid var(--couleur-action);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.3);
+  border-radius: 3px; /* Améliore le rendu du focus sur les éléments avec des coins */
 }
 
 /* --- MISE EN PAGE PRINCIPALE --- */
@@ -74,10 +75,18 @@ body {
 .groupe-formulaire { margin-bottom: 15px; }
 .groupe-formulaire label { display: block; margin-bottom: 5px; font-weight: 500; }
 .champ-formulaire { width: 100%; padding: 12px; border: 1px solid var(--couleur-bordure); border-radius: 8px; box-sizing: border-box; }
-.btn { padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: all 0.2s; font-family: var(--police-principale); text-decoration: none; display: inline-block; text-align: center; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-primaire { background-color: var(--couleur-principale); color: white; }
-.btn-primaire:not(:disabled):hover { background-color: var(--couleur-principale-hover); }
+.btn { padding: 12px 22px; border-radius: 50px; border: none; cursor: pointer; font-weight: 600; transition: all 0.3s ease-in-out; font-family: var(--police-principale); text-decoration: none; display: inline-block; text-align: center; text-transform: uppercase; letter-spacing: 0.5px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-primaire {
+  background-image: linear-gradient(to right, var(--couleur-principale) 0%, var(--couleur-action) 51%, var(--couleur-principale) 100%);
+  background-size: 200% auto;
+  color: white;
+}
+.btn-primaire:not(:disabled):hover {
+  background-position: right center;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+}
 .btn-secondaire { background-color: var(--couleur-bordure); color: var(--gris-fonce); }
 .btn-secondaire:not(:disabled):hover { background-color: #dcdfe2; }
 .message-erreur-connexion { color: var(--couleur-erreur); margin-top: 10px; font-size: 0.9em; }

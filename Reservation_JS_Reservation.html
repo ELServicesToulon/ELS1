@@ -94,6 +94,14 @@ function afficherConteneurFinalisation() {
  */
 function gererSoumissionReservation(e) {
   e.preventDefault();
+
+  const consentCheckbox = document.getElementById('consent-rgpd');
+  if (!consentCheckbox || !consentCheckbox.checked) {
+    afficherErreur("Vous devez accepter les conditions de confidentialité pour finaliser la réservation.");
+    if(consentCheckbox) consentCheckbox.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
   const { panier } = window.etat;
 
   if (panier.length === 0) {
@@ -102,6 +110,10 @@ function gererSoumissionReservation(e) {
   }
 
   const donneesReservation = recupererDonneesFormulaire();
+  donneesReservation.consentement = {
+    donne: true,
+    texte: document.querySelector('label[for="consent-rgpd"]').textContent.trim()
+  };
 
   // --- DEBUT VALIDATION DESTINATAIRE ---
   if (donneesReservation.destinataire) { // Le formulaire destinataire est actif

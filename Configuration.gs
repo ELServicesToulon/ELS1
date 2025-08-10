@@ -30,6 +30,15 @@ function getConfiguration() {
     TVA_APPLICABLE: false,
     TAUX_TVA: 0.20, // 20%
     DELAI_PAIEMENT_JOURS: 5,
+    PREFIXE_FACTURE: 'FACT',
+    PROCHAIN_NUMERO_FACTURE: 1,
+    MENTIONS_LEGALES: 'TVA non applicable, art. 293 B du CGI.',
+
+    // --- Paramètres de Paiement ---
+    PAIEMENTS_CONFIG: {
+        LIBELLE_VIREMENT: "Veuillez utiliser le numéro de facture comme référence pour votre virement.",
+        LIBELLE_CHEQUE: "Veuillez libeller votre chèque à l'ordre de EL Services."
+    },
 
     // --- Identifiants des services Google ---
     ID_CALENDRIER: "Elservicestoulon@gmail.com",
