@@ -5,6 +5,10 @@
  */
 
 function genererFactures() {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) {
+    SpreadsheetApp.getUi().alert("Action non autorisée.");
+    return;
+  }
   const CONFIG = getConfiguration();
   const ui = SpreadsheetApp.getUi();
   try {
@@ -179,6 +183,7 @@ function genererFactures() {
 }
 
 function obtenirTousLesClients() {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return [];
   const CONFIG = getConfiguration();
   try {
     const feuilleClients = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Clients");
@@ -209,6 +214,7 @@ function obtenirTousLesClients() {
 }
 
 function obtenirReservationsAdmin(dateString = null) {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
   const CONFIG = getConfiguration();
   try {
     const feuille = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Facturation");
@@ -251,6 +257,7 @@ function obtenirToutesReservationsPourDate(dateString) {
 }
 
 function creerReservationAdmin(data) {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
@@ -317,6 +324,7 @@ function creerReservationAdmin(data) {
 }
 
 function supprimerReservation(idReservation) {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
@@ -362,6 +370,7 @@ function supprimerReservation(idReservation) {
 }
 
 function mettreAJourDetailsReservation(idReservation, nouveauxArrets) {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return { success: false, error: "Le système est occupé, veuillez réessayer." };
@@ -426,6 +435,7 @@ function mettreAJourDetailsReservation(idReservation, nouveauxArrets) {
 }
 
 function replanifierReservation(idReservation, nouvelleDate, nouvelleHeure) {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return { success: false, error: "Le système est occupé." };
@@ -492,6 +502,7 @@ function replanifierReservation(idReservation, nouvelleDate, nouvelleHeure) {
 }
 
 function appliquerRemiseReservation(idReservation, typeRemise, valeurRemise, nbTourneesOffertesClient) {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
   const CONFIG = getConfiguration();
   try {
     const sheet = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName('Facturation');
@@ -700,6 +711,10 @@ function formaterDateEnFrancais(date) {
 
 
 function envoyerFacturesControlees() {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) {
+    SpreadsheetApp.getUi().alert("Action non autorisée.");
+    return;
+  }
   const CONFIG = getConfiguration();
   const ui = SpreadsheetApp.getUi();
   try {
@@ -778,6 +793,7 @@ function envoyerFacturesControlees() {
  * Récupère la liste des clients pour le panneau admin.
  */
 function getClientsPourAdmin() {
+  if (!isUserAdmin(Session.getActiveUser().getEmail())) return [];
   const CONFIG = getConfiguration();
   try {
     const ss = SpreadsheetApp.openById(CONFIG.CLIENT_SHEET_ID);

@@ -143,3 +143,20 @@ function isUserAdmin(email) {
   const CONFIG = getConfiguration();
   return email.toLowerCase() === CONFIG.ADMIN_EMAIL.toLowerCase();
 }
+
+/**
+ * Nettoie une chaîne de caractères pour éviter l'injection de formules dans les tableurs.
+ * Supprime les caractères de début potentiellement dangereux comme '=', '+', '-', '@'.
+ * @param {string} input La chaîne à nettoyer.
+ * @returns {string} La chaîne nettoyée.
+ */
+function sanitizeForSheet(input) {
+  if (typeof input !== 'string' || !input) {
+    return '';
+  }
+  let sanitized = input.trim();
+  if (['=', '+', '-', '@'].includes(sanitized.charAt(0))) {
+    sanitized = "'" + sanitized; // Ajoute une apostrophe pour forcer le traitement en tant que texte
+  }
+  return sanitized;
+}
