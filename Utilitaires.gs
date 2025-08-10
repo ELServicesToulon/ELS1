@@ -129,3 +129,17 @@ function trouverTableBordereau(corps) {
 function include(nomFichier) {
   return HtmlService.createHtmlOutputFromFile(nomFichier).getContent();
 }
+
+/**
+ * Vérifie si l'utilisateur est un administrateur en se basant sur son email.
+ * @param {string} email L'adresse email de l'utilisateur à vérifier.
+ * @returns {boolean} True si l'email correspond à l'email de l'administrateur, sinon false.
+ */
+function isUserAdmin(email) {
+  if (!email) {
+    return false;
+  }
+  // Récupère la configuration pour accéder à l'email de l'admin.
+  const CONFIG = getConfiguration();
+  return email.toLowerCase() === CONFIG.ADMIN_EMAIL.toLowerCase();
+}

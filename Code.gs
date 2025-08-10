@@ -41,10 +41,11 @@ function doGet(e) {
   try {
     // Routeur de page
     if (e.parameter.page) {
+        const userEmail = Session.getActiveUser().getEmail();
+
         switch (e.parameter.page) {
             case 'admin':
-                const adminEmail = Session.getActiveUser().getEmail();
-                if (adminEmail && adminEmail.toLowerCase() === CONFIG.ADMIN_EMAIL.toLowerCase()) {
+                if (isUserAdmin(userEmail)) {
                     const template = HtmlService.createTemplateFromFile('Admin_Interface');
                     template.config = JSON.stringify({
                       DUREE_BASE: CONFIG.DUREE_BASE,
@@ -56,8 +57,7 @@ function doGet(e) {
                     return HtmlService.createHtmlOutput('<h1>Accès Refusé</h1><p>Vous n\'avez pas les permissions nécessaires.</p>');
                 }
             case 'admin_config':
-                const configEmail = Session.getActiveUser().getEmail();
-                if (configEmail && configEmail.toLowerCase() === CONFIG.ADMIN_EMAIL.toLowerCase()) {
+                if (isUserAdmin(userEmail)) {
                     return HtmlService.createTemplateFromFile('Admin_Config_Interface').evaluate().setTitle("Configuration").setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
                 } else {
                     return HtmlService.createHtmlOutput('<h1>Accès Refusé</h1><p>Vous n\'avez pas les permissions nécessaires.</p>');
@@ -67,16 +67,17 @@ function doGet(e) {
                 templateGestion.ADMIN_EMAIL = CONFIG.ADMIN_EMAIL;
                 return templateGestion.evaluate().setTitle("Mon Espace Client").setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
             case 'livreur':
-                const livreurEmail = Session.getActiveUser().getEmail();
-                if (livreurEmail && livreurEmail.toLowerCase() === CONFIG.ADMIN_EMAIL.toLowerCase()) {
+                // Vérifie si l'email du livreur est dans la liste des emails autorisés (insensible à la casse)
+                const isLivreurAllowed = CONFIG.LIVREUR_EMAILS.map(email => email.toLowerCase()).includes(userEmail.toLowerCase());
+
+                if (userEmail && isLivreurAllowed) {
                     const template = HtmlService.createTemplateFromFile('Livreur_Interface');
                     return template.evaluate().setTitle("Espace Livreur").setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
                 } else {
                     return HtmlService.createHtmlOutput('<h1>Accès Refusé</h1><p>Vous n\'avez pas les permissions nécessaires.</p>');
                 }
             case 'debug':
-                 const debugEmail = Session.getActiveUser().getEmail();
-                if (debugEmail && debugEmail.toLowerCase() === CONFIG.ADMIN_EMAIL.toLowerCase()) {
+                if (isUserAdmin(userEmail)) {
                     return HtmlService.createHtmlOutputFromFile('Debug_Interface').setTitle("Panneau de Débogage");
                 } else {
                     return HtmlService.createHtmlOutput('<h1>Accès Refusé</h1><p>Vous n\'avez pas les permissions nécessaires.</p>');
