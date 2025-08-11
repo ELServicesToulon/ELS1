@@ -20,16 +20,14 @@ function getProperty(properties, key, defaultValue = null) {
     if (value === null) {
         return defaultValue;
     }
-    // Grâce à la nouvelle logique de sauvegarde, on sait que toutes les propriétés
-    // sont stockées en format JSON. On peut donc parser directement.
+    // Tente de parser la valeur comme du JSON. Si ça échoue,
+    // retourne la valeur brute (chaîne), ce qui est le comportement attendu
+    // pour les nouvelles configurations saisies via l'UI.
     try {
         return JSON.parse(value);
     } catch (e) {
-        // Si le parse échoue, c'est une erreur inattendue.
-        // Cela peut arriver si les propriétés ont été modifiées manuellement avec un format invalide.
-        Logger.log(`Erreur de parsing JSON pour la clé '${key}'. Valeur: '${value}'. Erreur: ${e.message}`);
-        // On retourne la valeur par défaut pour éviter un crash complet.
-        return defaultValue;
+        // Le parsing a échoué, on suppose que c'est une chaîne de caractères normale.
+        return value;
     }
 }
 
@@ -37,14 +35,13 @@ function getProperty(properties, key, defaultValue = null) {
  * Retourne un objet contenant toute la configuration de l'application
  * en lisant les valeurs depuis PropertiesService.
  * @returns {Object} L'objet de configuration.
- * @throws {Error} Lance une erreur si une configuration essentielle est manquante.
  */
 function getConfiguration() {
     const properties = PropertiesService.getScriptProperties();
     const config = {};
-    const erreursManquantes = [];
 
     // --- Définition des clés et de leurs valeurs par défaut ---
+    // La validation des clés critiques est désormais gérée par CONFIG_verifierConfigurationOuErreur()
     const configMap = {
         // --- Infos Entreprise (les plus critiques n'ont pas de défaut) ---
         NOM_ENTREPRISE: "EL Services",
@@ -111,27 +108,20 @@ function getConfiguration() {
     for (const key in configMap) {
         if (Object.prototype.hasOwnProperty.call(configMap, key)) {
             const defaultValue = configMap[key];
-            const value = getProperty(properties, key, defaultValue);
-
-            if (value === null && defaultValue === null) {
-                // C'est une clé critique qui n'a pas de valeur par défaut et n'est pas dans PropertiesService
-                erreursManquantes.push(key);
-            } else {
-                config[key] = value;
-            }
+            // La validation est maintenant gérée en amont par CONFIG_verifierConfigurationOuErreur().
+            // On se contente de lire la propriété ou d'utiliser la valeur par défaut.
+            config[key] = getProperty(properties, key, defaultValue);
         }
     }
 
-    // --- Validation finale ---
-    if (erreursManquantes.length > 0) {
-        const message = `Configuration critique manquante. Veuillez exécuter la fonction de configuration initiale ou vérifier les PropertiesService. Clés manquantes : ${erreursManquantes.join(', ')}`;
-        Logger.log(message);
-        throw new Error(message);
+    // Conversion explicite des nombres au cas où ils seraient stockés comme chaînes.
+    // Ceci reste important car PropertiesService stocke tout en chaîne.
+    if (config.PROCHAIN_NUMERO_FACTURE) {
+        config.PROCHAIN_NUMERO_FACTURE = parseInt(config.PROCHAIN_NUMERO_FACTURE, 10);
     }
-
-    // Conversion explicite des nombres au cas où ils seraient stockés comme chaînes
-    config.PROCHAIN_NUMERO_FACTURE = parseInt(config.PROCHAIN_NUMERO_FACTURE, 10);
-    config.DUREE_BASE = parseInt(config.DUREE_BASE, 10);
+    if (config.DUREE_BASE) {
+        config.DUREE_BASE = parseInt(config.DUREE_BASE, 10);
+    }
     // ... ajouter d'autres conversions si nécessaire
 
     return config;
