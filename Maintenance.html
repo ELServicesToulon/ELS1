@@ -77,7 +77,23 @@ function sauvegarderCodeProjet() {
     const dossierSauvegarde = dossierParentSauvegardes.createFolder(nomDossierSauvegarde);
     
     fichiers.forEach(fichier => {
-      const nomFichier = fichier.type === 'SERVER_JS' ? `${fichier.name}.gs` : `${fichier.name}.html`;
+      let nomFichier;
+      switch (fichier.type) {
+        case 'SERVER_JS':
+          nomFichier = `${fichier.name}.gs`;
+          break;
+        case 'HTML':
+          nomFichier = `${fichier.name}.html`;
+          break;
+        case 'JSON':
+          nomFichier = `${fichier.name}.json`;
+          break;
+        default:
+          // Fallback pour les types de fichiers inattendus, avec log.
+          nomFichier = `${fichier.name}.txt`;
+          Logger.log(`Type de fichier inconnu durant la sauvegarde : ${fichier.type}. Fichier "${fichier.name}" sauvegardé comme .txt`);
+          break;
+      }
       dossierSauvegarde.createFile(nomFichier, fichier.source, MimeType.PLAIN_TEXT);
     });
 
@@ -124,9 +140,20 @@ function sauvegarderDonnees() {
   }
 }
 
+/**
+ * NOTE IMPORTANTE POUR LE DÉVELOPPEUR :
+ * Pour que cette fonction puisse s'exécuter correctement, le fichier manifeste `appsscript.json`
+ * de ce projet DOIT contenir la portée (scope) OAuth suivante :
+ * "https://www.googleapis.com/auth/script.projects"
+ *
+ * Si cette portée est manquante, l'appel à l'API Apps Script échouera avec une erreur d'autorisation.
+ * Pour modifier le manifeste : Affichez le fichier "appsscript.json" dans l'éditeur, ajoutez la portée
+ * à la liste "oauthScopes", puis enregistrez le projet.
+ */
 function recupererTousLesFichiersProjet() {
   const idScript = ScriptApp.getScriptId();
-  const url = `https://script.google.com/feeds/download/export?id=${idScript}&format=json`;
+  // Utilisation du nouvel endpoint de l'API Apps Script v1
+  const url = `https://script.googleapis.com/v1/projects/${idScript}/content`;
   const options = {
     headers: { Authorization: `Bearer ${ScriptApp.getOAuthToken()}` },
     muteHttpExceptions: true
@@ -136,7 +163,8 @@ function recupererTousLesFichiersProjet() {
   if (reponse.getResponseCode() === 200) {
     return JSON.parse(reponse.getContentText()).files;
   } else {
-    Logger.log(`Échec de l'appel à l'API Apps Script (Code: ${reponse.getResponseCode()}).`);
+    // Amélioration de la journalisation pour inclure la réponse de l'API en cas d'erreur
+    Logger.log(`Échec de l'appel à l'API Apps Script (Code: ${reponse.getResponseCode()}). Réponse: ${reponse.getContentText()}`);
     return null;
   }
 }
