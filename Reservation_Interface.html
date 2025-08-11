@@ -27,6 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <?!= include('Shared_CSS'); ?>
   <?!= include('Reservation_CSS'); ?>
   <style>
     .page-container {
@@ -376,68 +377,6 @@
 
   <div id="conteneur-notifications" role="alert" aria-live="assertive"></div>
   
-  <script>
-    /**
-     * =================================================================
-     * MODULE JAVASCRIPT - AFFICHAGE DES CRÉNEAUX (Logique Corrigée)
-     * =================================================================
-     */
-
-    /**
-     * Affiche les créneaux horaires dans la modale, en désactivant ceux qui sont passés.
-     * @param {string[]} creneauxDisponibles Tableau des créneaux disponibles (ex: ["09h00", "09h15"]).
-     */
-    function afficherCreneaux(creneauxDisponibles) {
-        const { grilleSelectionCreneau } = window.ui;
-        const { dateSelectionnee } = window.etat; // Format attendu: "YYYY-MM-DD"
-
-        if (!grilleSelectionCreneau || !dateSelectionnee) {
-            console.error("Impossible d'afficher les créneaux : élément UI ou date manquants.");
-            afficherErreur("Une erreur technique est survenue lors de l'affichage des créneaux.");
-            return;
-        }
-
-        grilleSelectionCreneau.innerHTML = '';
-        const maintenant = new Date();
-
-        if (!creneauxDisponibles || creneauxDisponibles.length === 0) {
-            grilleSelectionCreneau.innerHTML = '<p class="aucun-creneau">Aucun créneau disponible pour cette journée.</p>';
-            return;
-        }
-
-        // --- DÉBUT DE LA CORRECTION ---
-        // On décompose la date YYYY-MM-DD pour créer un objet Date de manière fiable,
-        // ce qui évite les problèmes de fuseau horaire des navigateurs.
-        const [annee, mois, jour] = dateSelectionnee.split('-').map(Number);
-        // --- FIN DE LA CORRECTION ---
-
-        creneauxDisponibles.forEach(heureStr => {
-            const creneauEl = document.createElement('button');
-            creneauEl.type = 'button';
-            creneauEl.className = 'btn-creneau';
-            creneauEl.textContent = heureStr.replace('h', ':');
-            creneauEl.dataset.heure = heureStr;
-
-            const [heures, minutes] = heureStr.split('h').map(Number);
-            
-            // --- DÉBUT DE LA CORRECTION ---
-            // On construit la date du créneau en utilisant les composants décomposés.
-            // new Date(année, mois - 1, jour, heures, minutes) utilise le fuseau horaire local du client.
-            const dateCreneau = new Date(annee, mois - 1, jour, heures, minutes);
-            // --- FIN DE LA CORRECTION ---
-
-            // La logique de comparaison est maintenant fiable.
-            if (dateCreneau < maintenant) {
-                creneauEl.disabled = true;
-                creneauEl.classList.add('desactive');
-                creneauEl.title = 'Créneau expiré';
-            }
-
-            grilleSelectionCreneau.appendChild(creneauEl);
-        });
-    }
-  </script>
-
   <?!= include('Reservation_JS_UI'); ?>
   <?!= include('Reservation_JS_UI_Elements'); ?>
   <?!= include('Reservation_JS_Calendrier'); ?>

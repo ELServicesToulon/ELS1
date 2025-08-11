@@ -173,3 +173,96 @@ function isUserLivreur(email) {
   const CONFIG = getConfiguration();
   return CONFIG.LIVREUR_EMAILS.map(e => e.toLowerCase()).includes(email.toLowerCase());
 }
+
+/**
+ * Échappe les caractères HTML pour prévenir les attaques XSS.
+ * @param {*} str La chaîne à échapper.
+ * @returns {string} La chaîne échappée.
+ */
+function escapeHTML(str) {
+    if (str === null || str === undefined) {
+        return '';
+    }
+    // Assurons-nous que l'entrée est une chaîne
+    const toStr = String(str);
+    return toStr.replace(/[&<>"']/g, function(match) {
+        switch (match) {
+            case '&': return '&amp;';
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '"': return '&quot;';
+            case "'": return '&#39;';
+            default: return match;
+        }
+    });
+}
+
+/**
+ * Sanitize les données pour différents contextes.
+ * @param {*} input La donnée à nettoyer.
+ * @param {string} context Le contexte ('sheet' ou 'html').
+ * @returns {string} La donnée nettoyée.
+ */
+function sanitize(input, context = 'html') {
+  if (context === 'sheet') {
+    return sanitizeForSheet(input);
+  }
+  // Par défaut, ou si le contexte est 'html'
+  return escapeHTML(input);
+}
+
+/**
+ * Journalise une action administrative pour l'audit.
+ * @param {string} action Le type d'action (ex: "Génération Factures").
+ * @param {string} details Les détails de l'action.
+ */
+function logAdminAction(action, details) {
+    try {
+        const CONFIG = getConfiguration();
+        const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
+        let logSheet = ss.getSheetByName("Admin_Logs");
+        if (!logSheet) {
+            logSheet = ss.insertSheet("Admin_Logs");
+            logSheet.appendRow(["Date", "Administrateur", "Action", "Détails"]);
+            logSheet.setFrozenRows(1);
+        }
+        const adminEmail = Session.getActiveUser().getEmail();
+        logSheet.appendRow([new Date(), adminEmail, action, details]);
+    } catch (e) {
+        Logger.log(`Échec de l'écriture dans le journal d'administration: ${e.message}`);
+    }
+}
+
+/**
+ * Exécute une fonction avec une politique de tentatives multiples en cas d'échec.
+ * Utile pour les appels aux API Google qui peuvent échouer de manière transitoire.
+ * @param {function} func La fonction à exécuter.
+ * @param {number} [maxRetries=3] Le nombre maximum de tentatives.
+ * @param {number} [initialDelay=1000] Le délai initial en ms avant la première nouvelle tentative.
+ * @returns {*} La valeur de retour de la fonction exécutée.
+ * @throws L'erreur de la dernière tentative si toutes les tentatives échouent.
+ */
+function executeWithRetry(func, maxRetries = 3, initialDelay = 1000) {
+  let retries = 0;
+  while (true) {
+    try {
+      return func();
+    } catch (e) {
+      // Ne pas réessayer pour les erreurs de validation ou d'autorisation.
+      // Réessayer uniquement pour les erreurs génériques de service Google.
+      if (e.message.includes("Exception:") || e.message.includes("failed with code")) {
+        retries++;
+        if (retries > maxRetries) {
+          Logger.log(`Échec final après ${maxRetries} tentatives. Erreur: ${e.stack}`);
+          throw e;
+        }
+        const delay = initialDelay * Math.pow(2, retries - 1);
+        Logger.log(`Tentative ${retries} échouée. Nouvelle tentative dans ${delay}ms. Erreur: ${e.message}`);
+        Utilities.sleep(delay);
+      } else {
+        // Lancer immédiatement les autres types d'erreurs.
+        throw e;
+      }
+    }
+  }
+}

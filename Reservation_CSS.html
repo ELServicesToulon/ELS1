@@ -3,39 +3,6 @@
                       FEUILLE DE STYLE - INTERFACE DE RÉSERVATION
    ================================================================= */
 
-/* --- VARIABLES DE COULEURS ET STYLES DE BASE (CONFORME) --- */
-:root {
-  --couleur-principale: #8e44ad; /* Violet */
-  --couleur-principale-hover: #732d91; /* Violet Foncé */
-  --couleur-action: #3498db; /* Bleu */
-  --couleur-options: #5dade2; /* Bleu Clair */
-  --couleur-succes: var(--couleur-action); /* Vert remplacé par Bleu */
-  --couleur-erreur: #c0392b; /* Rouge - Conservé pour Urgence/Suppression */
-  --gris-clair: #f9f9f9;
-  --gris-moyen: #6c757d;
-  --gris-fonce: #343a40;
-  --couleur-bordure: #e9ecef;
-  --police-principale: 'Montserrat', sans-serif;
-  --ombre-portee: 0 8px 25px rgba(0, 0, 0, 0.07);
-}
-
-body {
-  font-family: var(--police-principale);
-  background-color: var(--gris-clair);
-  margin: 0;
-  color: var(--gris-fonce);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* --- ACCESSIBILITÉ : Style pour le focus clavier --- */
-:focus-visible {
-  outline: 3px solid var(--couleur-action);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.3);
-  border-radius: 3px; /* Améliore le rendu du focus sur les éléments avec des coins */
-}
-
 /* --- MISE EN PAGE PRINCIPALE --- */
 #app-conteneur-principal {
   max-width: 1400px;
