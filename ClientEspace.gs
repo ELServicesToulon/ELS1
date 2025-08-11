@@ -14,6 +14,7 @@ function demanderLienDeConnexion(email) {
     return { success: false, message: "Veuillez fournir une adresse e-mail valide." };
   }
 
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   // Vérifier si le client existe
   const client = obtenirInfosClientParEmail(email);
@@ -87,6 +88,7 @@ function obtenirReservationsClient(token) {
         return { success: false, error: "Session invalide ou expirée. Veuillez vous reconnecter." };
     }
 
+    CONFIG_verifierConfigurationOuErreur();
     const CONFIG = getConfiguration();
     try {
         const feuille = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Facturation");
@@ -147,6 +149,7 @@ function mettreAJourDetailsReservationClient(token, idReservation, nouveauxArret
   }
 
   const { reservationData } = validation;
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
 
   const dateDebut = new Date(reservationData["Date"]);
@@ -174,6 +177,7 @@ function replanifierReservationClient(token, idReservation, nouvelleDate, nouvel
   }
 
   const { reservationData } = validation;
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
 
   const dateDebut = new Date(reservationData["Date"]);
@@ -197,6 +201,7 @@ function validerTokenEtRecupererReservation(token, idReservation) {
   const email = CacheService.getScriptCache().get(token);
   if (!email) return null;
 
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   const sheet = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Facturation");
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
@@ -231,6 +236,7 @@ function enregistrerConsentementRGPD(email, consentText, source) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    CONFIG_verifierConfigurationOuErreur();
     const CONFIG = getConfiguration();
     const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
     let journalSheet = ss.getSheetByName("Journal_RGPD");

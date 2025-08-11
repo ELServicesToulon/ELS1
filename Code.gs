@@ -5,42 +5,59 @@
 //              Sheet et les requêtes web pour afficher les interfaces.
 // =================================================================
 
-// --- Accès centralisé à la configuration ---
-const CONFIG = getConfiguration();
-
-
 /**
  * S'exécute à l'ouverture du Google Sheet pour créer les menus.
  */
 function onOpen() {
-  const ui = SpreadsheetApp.getUi();
-  const menuPrincipal = ui.createMenu('EL Services')
-      .addItem('Générer les factures sélectionnées', 'genererFactures')
-      .addItem('Envoyer les factures contrôlées', 'envoyerFacturesControlees')
-      .addItem("Archiver les factures du mois dernier", "archiverFacturesDuMois")
-      .addSeparator()
-      .addItem("Vérifier la cohérence du calendrier", "verifierCoherenceCalendrier")
-      .addItem("Lancer un audit des partages Drive", "lancerAuditDrive");
+    const ui = SpreadsheetApp.getUi();
+    const menu = ui.createMenu('EL Services');
 
-  const sousMenuMaintenance = ui.createMenu('Maintenance')
-      .addItem("Installer/Mettre à jour les sauvegardes auto", "installerTriggersAutomatiques")
-      .addSeparator()
-      .addItem("Sauvegarder le code du projet (manuel)", "sauvegarderCodeProjet")
-      .addItem("Sauvegarder les données (manuel)", "sauvegarderDonnees")
-      .addItem("Purger les anciennes données (RGPD)", "purgerAnciennesDonnees");
-      
-  const sousMenuDebug = ui.createMenu('Debug')
-      .addItem("Lancer tous les tests", "lancerTousLesTests");
+    menu.addItem('Générer les factures sélectionnées', 'genererFactures');
+    menu.addItem('Envoyer les factures contrôlées', 'envoyerFacturesControlees');
+    menu.addItem("Archiver les factures du mois dernier", "archiverFacturesDuMois");
+    menu.addSeparator();
 
-  menuPrincipal.addSubMenu(sousMenuMaintenance).addToUi();
-  menuPrincipal.addSubMenu(sousMenuDebug).addToUi();
+    // Sous-menu de Configuration
+    const configMenu = ui.createMenu('Configuration')
+        .addItem('1) Initialiser valeurs EXEMPLE', 'CONFIG_initialiserValeursExemple')
+        .addItem('2) Saisir/mettre à jour via UI', 'CONFIG_saisirValeursParUI')
+        .addItem('3) Afficher état', 'CONFIG_afficherEtat')
+        .addSeparator()
+        .addItem('4) Supprimer TOUTES les clés', 'CONFIG_supprimerConfiguration');
+    menu.addSubMenu(configMenu);
+    menu.addSeparator();
+
+    menu.addItem("Vérifier la cohérence du calendrier", "verifierCoherenceCalendrier");
+    menu.addItem("Lancer un audit des partages Drive", "lancerAuditDrive");
+
+    // Sous-menu de Maintenance
+    const maintenanceMenu = ui.createMenu('Maintenance')
+        .addItem("Installer/Mettre à jour les sauvegardes auto", "installerTriggersAutomatiques")
+        .addSeparator()
+        .addItem("Sauvegarder le code du projet (manuel)", "sauvegarderCodeProjet")
+        .addItem("Sauvegarder les données (manuel)", "sauvegarderDonnees")
+        .addItem("Purger les anciennes données (RGPD)", "purgerAnciennesDonnees");
+    menu.addSubMenu(maintenanceMenu);
+
+    // Sous-menu de Debug
+    const debugMenu = ui.createMenu('Debug')
+        .addItem("Lancer tous les tests", "lancerTousLesTests");
+    menu.addSubMenu(debugMenu);
+
+    menu.addToUi();
 }
+
 
 /**
  * S'exécute lorsqu'un utilisateur accède à l'URL de l'application web.
  */
 function doGet(e) {
   try {
+    // 1. Valider la configuration avant toute chose.
+    CONFIG_verifierConfigurationOuErreur();
+    // 2. Charger la configuration pour l'utiliser dans l'application.
+    const CONFIG = getConfiguration();
+
     // Routeur de page
     if (e.parameter.page) {
         const userEmail = Session.getActiveUser().getEmail();

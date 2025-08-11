@@ -9,6 +9,7 @@
  * Récupère les événements du calendrier Google pour une période donnée via l'API avancée.
  */
 function obtenirEvenementsCalendrierPourPeriode(dateDebut, dateFin) {
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   try {
     const evenements = executeWithRetry(() =>
@@ -31,6 +32,7 @@ function obtenirEvenementsCalendrierPourPeriode(dateDebut, dateFin) {
  * Calcule les créneaux horaires disponibles pour une date et une durée spécifiques.
  */
 function obtenirCreneauxDisponiblesPourDate(dateString, duree, idEvenementAIgnorer = null, evenementsPrecharges = null, autresCoursesPanier = []) {
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   try {
     const [annee, mois, jour] = dateString.split('-').map(Number);
@@ -123,6 +125,7 @@ function obtenirCreneauxDisponiblesPourDate(dateString, duree, idEvenementAIgnor
  * Renvoie la disponibilité de chaque jour du mois pour l'affichage du calendrier public.
  */
 function obtenirDonneesCalendrierPublic(mois, annee) {
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   const cache = CacheService.getScriptCache();
   const cleCache = `dispo_${annee}_${mois}`;
