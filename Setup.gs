@@ -99,12 +99,11 @@ function migrerConfigurationVersProperties() {
     const clesSauvegardees = [];
     for (const key in config) {
       if (Object.prototype.hasOwnProperty.call(config, key)) {
-        let value = config[key];
-        // Stringify les objets et tableaux pour les stocker correctement
-        if (typeof value === 'object' && value !== null) {
-          value = JSON.stringify(value);
-        }
-        properties.setProperty(key, value);
+        const value = config[key];
+        // On utilise TOUJOURS JSON.stringify pour garantir que le type est préservé
+        // (ex: false ne devient pas la chaîne "false" mais reste un booléen après parse)
+        const valueAsString = JSON.stringify(value);
+        properties.setProperty(key, valueAsString);
         clesSauvegardees.push(key);
       }
     }
