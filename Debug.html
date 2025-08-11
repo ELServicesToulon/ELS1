@@ -123,6 +123,7 @@ function testerUtilitaires() {
 }
 
 function testerFeuilleCalcul() {
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   const TEST_CLIENT = {
     email: "test.client.permanent@example.com",
@@ -166,6 +167,7 @@ function testerReservation() {
 
   // --- NOUVEAUX TESTS POUR LE PARRAINAGE ---
   Logger.log("Test de l'application de la remise de parrainage...");
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG_TEST = getConfiguration();
   const PRIX_BASE = CONFIG_TEST.TARIFS['Normal'].base;
   const REMISE_PARRAINAGE = CONFIG_TEST.PARRAINAGE_CONFIG.MONTANT_REMISE_FILLEUL;

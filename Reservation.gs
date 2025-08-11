@@ -102,6 +102,7 @@ function reserverPanier(donneesReservation) {
  * Crée une réservation unique, en incluant les informations du destinataire et une éventuelle remise de parrainage.
  */
 function creerReservationUnique(item, client, clientPourCalcul, destinataire, remiseParrainage = 0) {
+    CONFIG_verifierConfigurationOuErreur();
     const CONFIG = getConfiguration();
     const { date, startTime, totalStops, returnToPharmacy } = item;
     const infosTournee = calculerInfosTourneeBase(totalStops, returnToPharmacy, date, startTime);
@@ -152,6 +153,7 @@ function enregistrerOuMajDestinataire(destinataire, emailClientAssocie) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    CONFIG_verifierConfigurationOuErreur();
     const CONFIG = getConfiguration();
     const sheet = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Destinataires");
     const data = sheet.getDataRange().getValues();
@@ -195,6 +197,7 @@ function enregistrerOuMajDestinataire(destinataire, emailClientAssocie) {
  * Génère un devis détaillé à partir du panier et l'envoie par email.
  */
 function envoyerDevisParEmail(donneesDevis) {
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   try {
     // --- Correction de sécurité : Toujours utiliser l'e-mail de la session et recalculer les prix ---
@@ -278,6 +281,7 @@ function envoyerDevisParEmail(donneesDevis) {
  * Envoie un email de confirmation de réservation au client.
  */
 function notifierClientConfirmation(email, nom, reservations) {
+    CONFIG_verifierConfigurationOuErreur();
     const CONFIG = getConfiguration();
     try {
         if (!email || !reservations || reservations.length === 0) return;
@@ -307,6 +311,7 @@ function notifierClientConfirmation(email, nom, reservations) {
  * Calcule les informations de base d'une tournée (prix, durée, type) avant application des remises client.
  */
 function calculerInfosTourneeBase(totalStops, returnToPharmacy, dateString, timeString) {
+    CONFIG_verifierConfigurationOuErreur();
     const CONFIG = getConfiguration();
     const date = new Date(`${dateString}T${timeString.replace('h', ':')}`);
     const jourSemaine = date.getDay(); // 0 = Dimanche, 6 = Samedi
@@ -357,6 +362,7 @@ function calculerInfosTourneeBase(totalStops, returnToPharmacy, dateString, time
  * Calcule le prix et la durée d'une course en fonction des paramètres.
  */
 function calculerPrixEtDureeServeur(totalStops, returnToPharmacy, dateString, timeString, client, remiseParrainage = 0) {
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   try {
     const infosBase = calculerInfosTourneeBase(totalStops, returnToPharmacy, dateString, timeString);

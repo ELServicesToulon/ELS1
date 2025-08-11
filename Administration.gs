@@ -15,6 +15,7 @@ function genererFactures() {
     return;
   }
   try {
+    CONFIG_verifierConfigurationOuErreur();
     const CONFIG = getConfiguration();
     const ui = SpreadsheetApp.getUi();
     validerConfiguration();
@@ -183,7 +184,6 @@ function genererFactures() {
     Logger.log(`ERREUR FATALE dans genererFactures: ${e.stack}`);
     logAdminAction("Génération Factures", `Échec critique: ${e.message}`);
     ui.showModalDialog(HtmlService.createHtmlOutput(`<p>Une erreur critique est survenue:</p><pre>${e.message}</pre>`), "Erreur Critique");
-  }
   } finally {
     lock.releaseLock();
   }
@@ -191,6 +191,7 @@ function genererFactures() {
 
 function obtenirTousLesClients() {
   if (!isUserAdmin(Session.getActiveUser().getEmail())) return [];
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   try {
     const feuilleClients = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Clients");
@@ -222,6 +223,7 @@ function obtenirTousLesClients() {
 
 function obtenirReservationsAdmin(dateString = null) {
   if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   try {
     const feuille = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Facturation");
@@ -265,6 +267,7 @@ function obtenirToutesReservationsPourDate(dateString) {
 
 function creerReservationAdmin(data) {
   if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
@@ -334,6 +337,7 @@ function creerReservationAdmin(data) {
 
 function supprimerReservation(idReservation) {
   if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
@@ -381,6 +385,7 @@ function supprimerReservation(idReservation) {
 
 function mettreAJourDetailsReservation(idReservation, nouveauxArrets, reservationData = null) {
   // La vérification des permissions est gérée par la fonction appelante
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return { success: false, error: "Le système est occupé, veuillez réessayer." };
@@ -463,6 +468,7 @@ function mettreAJourDetailsReservation(idReservation, nouveauxArrets, reservatio
 
 function replanifierReservation(idReservation, nouvelleDate, nouvelleHeure, reservationData = null) {
   // L'accès est déjà vérifié par la fonction appelante (soit admin, soit client)
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return { success: false, error: "Le système est occupé." };
@@ -550,6 +556,7 @@ function appliquerRemiseReservation(idReservation, typeRemise, valeurRemise, nbT
     return { success: false, error: "Le système est occupé. Veuillez réessayer." };
   }
   try {
+    CONFIG_verifierConfigurationOuErreur();
     const CONFIG = getConfiguration();
     const sheet = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName('Facturation');
     const data = sheet.getDataRange().getValues();
@@ -632,6 +639,7 @@ function appliquerRemiseReservation(idReservation, typeRemise, valeurRemise, nbT
 }
 
 function formaterReservationPourAdmin(ligne, indices) {
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   try {
     const dateSheet = new Date(ligne[indices["Date"]]);
@@ -702,6 +710,7 @@ function formaterReservationPourAdmin(ligne, indices) {
  * @throws {Error} Lance une erreur si un problème de configuration est détecté.
  */
 function validerConfiguration() {
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   const erreurs = [];
 
@@ -755,6 +764,7 @@ function envoyerFacturesControlees() {
     return;
   }
   try {
+    CONFIG_verifierConfigurationOuErreur();
     const CONFIG = getConfiguration();
     const ui = SpreadsheetApp.getUi();
     logAdminAction("Envoi Factures", "Démarré");
@@ -837,6 +847,7 @@ function envoyerFacturesControlees() {
  */
 function getClientsPourAdmin() {
   if (!isUserAdmin(Session.getActiveUser().getEmail())) return [];
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   try {
     const ss = SpreadsheetApp.openById(CONFIG.CLIENT_SHEET_ID);

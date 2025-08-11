@@ -140,6 +140,7 @@ function isUserAdmin(email) {
     return false;
   }
   // Récupère la configuration pour accéder à l'email de l'admin.
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   return email.toLowerCase() === CONFIG.ADMIN_EMAIL.toLowerCase();
 }
@@ -170,6 +171,7 @@ function isUserLivreur(email) {
   if (!email) {
     return false;
   }
+  CONFIG_verifierConfigurationOuErreur();
   const CONFIG = getConfiguration();
   return CONFIG.LIVREUR_EMAILS.map(e => e.toLowerCase()).includes(email.toLowerCase());
 }
@@ -218,6 +220,7 @@ function sanitize(input, context = 'html') {
  */
 function logAdminAction(action, details) {
     try {
+        CONFIG_verifierConfigurationOuErreur();
         const CONFIG = getConfiguration();
         const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
         let logSheet = ss.getSheetByName("Admin_Logs");
