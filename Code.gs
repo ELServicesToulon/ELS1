@@ -1,51 +1,9 @@
 // =================================================================
-//                        POINT D'ENTRÉE & MENUS
+//                        POINT D'ENTRÉE WEB
 // =================================================================
-// Description: Contrôleur principal qui gère les menus dans le Google
-//              Sheet et les requêtes web pour afficher les interfaces.
+// Description: Contrôleur principal qui gère les requêtes web (routage)
+//              pour afficher les interfaces de l'application.
 // =================================================================
-
-/**
- * S'exécute à l'ouverture du Google Sheet pour créer les menus.
- */
-function onOpen() {
-    const ui = SpreadsheetApp.getUi();
-    const menu = ui.createMenu('EL Services');
-
-    menu.addItem('Générer les factures sélectionnées', 'genererFactures');
-    menu.addItem('Envoyer les factures contrôlées', 'envoyerFacturesControlees');
-    menu.addItem("Archiver les factures du mois dernier", "archiverFacturesDuMois");
-    menu.addSeparator();
-
-    // Sous-menu de Configuration
-    const configMenu = ui.createMenu('Configuration')
-        .addItem('1) Initialiser valeurs EXEMPLE', 'CONFIG_initialiserValeursExemple')
-        .addItem('2) Saisir/mettre à jour via UI', 'CONFIG_saisirValeursParUI')
-        .addItem('3) Afficher état', 'CONFIG_afficherEtat')
-        .addSeparator()
-        .addItem('4) Supprimer TOUTES les clés', 'CONFIG_supprimerConfiguration');
-    menu.addSubMenu(configMenu);
-    menu.addSeparator();
-
-    menu.addItem("Vérifier la cohérence du calendrier", "verifierCoherenceCalendrier");
-    menu.addItem("Lancer un audit des partages Drive", "lancerAuditDrive");
-
-    // Sous-menu de Maintenance
-    const maintenanceMenu = ui.createMenu('Maintenance')
-        .addItem("Installer/Mettre à jour les sauvegardes auto", "installerTriggersAutomatiques")
-        .addSeparator()
-        .addItem("Sauvegarder le code du projet (manuel)", "sauvegarderCodeProjet")
-        .addItem("Sauvegarder les données (manuel)", "sauvegarderDonnees")
-        .addItem("Purger les anciennes données (RGPD)", "purgerAnciennesDonnees");
-    menu.addSubMenu(maintenanceMenu);
-
-    // Sous-menu de Debug
-    const debugMenu = ui.createMenu('Debug')
-        .addItem("Lancer tous les tests", "lancerTousLesTests");
-    menu.addSubMenu(debugMenu);
-
-    menu.addToUi();
-}
 
 
 /**
