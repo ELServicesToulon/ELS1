@@ -94,7 +94,7 @@ function afficherPanier() {
         <div class="item-panier-infos">
           <strong>Le ${dateFormatee} à ${item.startTime}</strong>
           ${recurrenceInfo}
-          <small>${item.details}</small>
+          <small>${sanitize(item.details)}</small>
         </div>
         <div class="item-panier-actions">
             <span class="item-panier-prix">${item.prix.toFixed(2)} €</span>

@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     afficherReservations(reponse.reservations);
                 } else {
                     afficherErreur(reponse.error);
-                    if (contenuReservations) contenuReservations.innerHTML = `<p style="color: #c0392b;">${reponse.error}</p>`;
+                    if (contenuReservations) contenuReservations.innerHTML = `<p style="color: #c0392b;">${sanitize(reponse.error)}</p>`;
                 }
             })
             .withFailureHandler(afficherErreur)
@@ -46,11 +46,14 @@ document.addEventListener('DOMContentLoaded', () => {
             resaElement.dataset.id = resa.id;
 
             const heureDebut = new Date(resa.start).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-            const statutHtml = resa.statut ? `<span class="statut-badge">${resa.statut}</span>` : '';
+            const statutSafe = sanitize(resa.statut);
+            const clientNameSafe = sanitize(resa.clientName);
+            const detailsSafe = sanitize(resa.details);
+            const statutHtml = statutSafe ? `<span class="statut-badge">${statutSafe}</span>` : '';
 
             resaElement.innerHTML = `
-                <h4>${heureDebut} - ${resa.clientName} ${statutHtml}</h4>
-                <p>${resa.details}</p>
+                <h4>${heureDebut} - ${clientNameSafe} ${statutHtml}</h4>
+                <p>${detailsSafe}</p>
                 <div class="details-livraison">
                   <div class="groupe-formulaire">
                     <label for="note-${resa.id}">Note de livraison :</label>

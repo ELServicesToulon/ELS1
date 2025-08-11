@@ -42,6 +42,8 @@ function afficherCalendrier(mois, annee) {
           const disponibilite = window.etat.donneesCalendrier[dateString] || { disponibles: 0, total: 0 };
           
           celluleJour.className = 'jour-calendrier';
+          celluleJour.setAttribute('role', 'button');
+          celluleJour.setAttribute('tabindex', '0');
           celluleJour.innerHTML = `<span>${jour}</span>`;
           
           const estPasse = date < aujourdhui;

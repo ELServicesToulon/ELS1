@@ -11,15 +11,18 @@
 function obtenirEvenementsCalendrierPourPeriode(dateDebut, dateFin) {
   const CONFIG = getConfiguration();
   try {
-    const evenements = Calendar.Events.list(CONFIG.ID_CALENDRIER, {
-      timeMin: dateDebut.toISOString(),
-      timeMax: dateFin.toISOString(),
-      singleEvents: true,
-      orderBy: 'startTime'
-    });
+    const evenements = executeWithRetry(() =>
+      Calendar.Events.list(CONFIG.ID_CALENDRIER, {
+        timeMin: dateDebut.toISOString(),
+        timeMax: dateFin.toISOString(),
+        singleEvents: true,
+        orderBy: 'startTime'
+      })
+    );
     return evenements.items || [];
   } catch (e) {
     Logger.log(`ERREUR API Calendar: ${e.stack}`);
+    // En cas d'échec final, retourner un tableau vide pour ne pas bloquer l'interface
     return [];
   }
 }

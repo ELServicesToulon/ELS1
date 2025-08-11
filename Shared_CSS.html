@@ -1,0 +1,40 @@
+<style>
+/* =================================================================
+                      FEUILLE DE STYLE PARTAGÉE
+   ================================================================= */
+
+/* --- VARIABLES DE COULEURS ET STYLES DE BASE (CONFORME) --- */
+:root {
+  --couleur-principale: #8e44ad; /* Violet */
+  --couleur-principale-hover: #732d91; /* Violet Foncé */
+  --couleur-action: #3498db; /* Bleu */
+  --couleur-action-hover: #2980b9; /* Bleu plus foncé pour survol */
+  --couleur-options: #5dade2; /* Bleu Clair */
+  --couleur-succes: #2ecc71; /* Vert */
+  --couleur-erreur: #e74c3c; /* Rouge */
+  --couleur-info: #3498db; /* Bleu */
+  --gris-clair: #f9f9f9;
+  --gris-moyen: #bdc3c7;
+  --gris-fonce: #34495e;
+  --couleur-bordure: #e9ecef;
+  --police-principale: 'Montserrat', sans-serif;
+  --ombre-portee: 0 8px 25px rgba(0, 0, 0, 0.07);
+}
+
+body {
+  font-family: var(--police-principale);
+  background-color: var(--gris-clair);
+  margin: 0;
+  color: var(--gris-fonce);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- ACCESSIBILITÉ : Style pour le focus clavier --- */
+:focus-visible {
+  outline: 3px solid var(--couleur-action);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.3);
+  border-radius: 3px;
+}
+</style>

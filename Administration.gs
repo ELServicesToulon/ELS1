@@ -9,9 +9,14 @@ function genererFactures() {
     SpreadsheetApp.getUi().alert("Action non autorisée.");
     return;
   }
-  const CONFIG = getConfiguration();
-  const ui = SpreadsheetApp.getUi();
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    SpreadsheetApp.getUi().alert("Le système est occupé à générer des factures. Veuillez réessayer dans un instant.");
+    return;
+  }
   try {
+    const CONFIG = getConfiguration();
+    const ui = SpreadsheetApp.getUi();
     validerConfiguration();
     logAdminAction("Génération Factures", "Démarrée");
 
@@ -96,9 +101,9 @@ function genererFactures() {
         const dossierAnnee = obtenirOuCreerDossier(dossierArchives, dateFacture.getFullYear().toString());
         const dossierMois = obtenirOuCreerDossier(dossierAnnee, formaterDatePersonnalise(dateFacture, "MMMM yyyy"));
 
-        const modeleFacture = DriveApp.getFileById(CONFIG.ID_MODELE_FACTURE);
-        const copieFactureDoc = modeleFacture.makeCopy(`${numFacture} - ${clientInfos.nom}`, dossierMois);
-        const doc = DocumentApp.openById(copieFactureDoc.getId());
+        const modeleFacture = executeWithRetry(() => DriveApp.getFileById(CONFIG.ID_MODELE_FACTURE));
+        const copieFactureDoc = executeWithRetry(() => modeleFacture.makeCopy(`${numFacture} - ${clientInfos.nom}`, dossierMois));
+        const doc = executeWithRetry(() => DocumentApp.openById(copieFactureDoc.getId()));
         const corps = doc.getBody();
 
         corps.replaceText('{{nom_entreprise}}', CONFIG.NOM_ENTREPRISE);
@@ -144,8 +149,8 @@ function genererFactures() {
 
         doc.saveAndClose();
 
-        const blobPDF = copieFactureDoc.getAs(MimeType.PDF);
-        const fichierPDF = dossierMois.createFile(blobPDF).setName(`${numFacture} - ${clientInfos.nom}.pdf`);
+        const blobPDF = executeWithRetry(() => copieFactureDoc.getAs(MimeType.PDF));
+        const fichierPDF = executeWithRetry(() => dossierMois.createFile(blobPDF).setName(`${numFacture} - ${clientInfos.nom}.pdf`));
 
         lignesFactureClient.forEach(item => {
           feuilleFacturation.getRange(item.indexLigne, indicesFacturation['N° Facture'] + 1).setValue(numFacture);
@@ -178,6 +183,9 @@ function genererFactures() {
     Logger.log(`ERREUR FATALE dans genererFactures: ${e.stack}`);
     logAdminAction("Génération Factures", `Échec critique: ${e.message}`);
     ui.showModalDialog(HtmlService.createHtmlOutput(`<p>Une erreur critique est survenue:</p><pre>${e.message}</pre>`), "Erreur Critique");
+  }
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -290,9 +298,11 @@ function creerReservationAdmin(data) {
     const titreEvenement = `Réservation ${CONFIG.NOM_ENTREPRISE} - ${client.nom}`;
     const descriptionEvenement = `Client: ${client.nom} (${client.email})\nID Réservation: ${idReservation}\nDétails: ${infosPrixFinal.details}\nNote: Ajouté par Admin.`;
     
-    const evenement = CalendarApp.getCalendarById(CONFIG.ID_CALENDRIER).createEvent(titreEvenement, dateDebut, dateFin, { description: descriptionEvenement });
+    const evenement = executeWithRetry(() => {
+      return CalendarApp.getCalendarById(CONFIG.ID_CALENDRIER).createEvent(titreEvenement, dateDebut, dateFin, { description: descriptionEvenement });
+    });
 
-    if (!evenement) throw new Error("Échec de la création de l'événement dans le calendrier.");
+    if (!evenement) throw new Error("Échec de la création de l'événement dans le calendrier après plusieurs tentatives.");
 
     enregistrerReservationPourFacturation(
         dateDebut, client.nom, client.email, infosPrixFinal.typeCourse, infosPrixFinal.details, 
@@ -351,9 +361,10 @@ function supprimerReservation(idReservation) {
 
     if (idEvenement) {
       try {
-        Calendar.Events.remove(CONFIG.ID_CALENDRIER, idEvenement);
+        executeWithRetry(() => Calendar.Events.remove(CONFIG.ID_CALENDRIER, idEvenement));
       } catch (e) {
-        Logger.log(`Avertissement: L'événement Calendar ${idEvenement} n'a pas pu être supprimé. Erreur: ${e.message}`);
+        // Si même avec les retries ça ne fonctionne pas, on logue l'erreur mais on continue pour supprimer la ligne du sheet
+        Logger.log(`Avertissement: L'événement Calendar ${idEvenement} n'a pas pu être supprimé malgré plusieurs tentatives. Erreur: ${e.message}`);
       }
     }
 
@@ -368,27 +379,44 @@ function supprimerReservation(idReservation) {
   }
 }
 
-function mettreAJourDetailsReservation(idReservation, nouveauxArrets) {
-  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
+function mettreAJourDetailsReservation(idReservation, nouveauxArrets, reservationData = null) {
+  // La vérification des permissions est gérée par la fonction appelante
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return { success: false, error: "Le système est occupé, veuillez réessayer." };
 
   try {
     const feuille = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Facturation");
-    const enTete = feuille.getRange(1, 1, 1, feuille.getLastColumn()).getValues()[0];
-    const indices = {
-      idResa: enTete.indexOf("ID Réservation"), idEvent: enTete.indexOf("Event ID"),
-      details: enTete.indexOf("Détails"), email: enTete.indexOf("Client (Email)"),
-      montant: enTete.indexOf("Montant"), date: enTete.indexOf("Date")
-    };
-    if (Object.values(indices).some(i => i === -1)) throw new Error("Colonnes requises introuvables.");
+    let ligneDonnees;
+    let indexLigne = -1;
+    let enTete;
 
-    const donnees = feuille.getDataRange().getValues();
-    const indexLigne = donnees.findIndex(row => String(row[indices.idResa]).trim() === String(idReservation).trim());
+    if (reservationData) {
+        const idColIndex = Object.keys(reservationData).indexOf("ID Réservation");
+        const allIds = feuille.getRange(2, idColIndex + 1, feuille.getLastRow() - 1, 1).getValues().flat();
+        indexLigne = allIds.findIndex(id => String(id).trim() === idReservation) + 2;
+        ligneDonnees = Object.values(reservationData);
+        enTete = Object.keys(reservationData);
+    } else {
+        enTete = feuille.getRange(1, 1, 1, feuille.getLastColumn()).getValues()[0];
+        const idResaIndex = enTete.indexOf("ID Réservation");
+        const donnees = feuille.getDataRange().getValues();
+        const foundIndex = donnees.findIndex(row => String(row[idResaIndex]).trim() === String(idReservation).trim());
+        if (foundIndex === -1) return { success: false, error: "Réservation introuvable." };
+        indexLigne = foundIndex + 1;
+        ligneDonnees = donnees[foundIndex];
+    }
+
     if (indexLigne === -1) return { success: false, error: "Réservation introuvable." };
 
-    const ligneDonnees = donnees[indexLigne];
+    const indices = {
+      idEvent: enTete.indexOf("Event ID"),
+      details: enTete.indexOf("Détails"),
+      email: enTete.indexOf("Client (Email)"),
+      date: enTete.indexOf("Date"),
+      montant: enTete.indexOf("Montant")
+    };
+
     const idEvenement = String(ligneDonnees[indices.idEvent]).trim();
     const detailsAnciens = String(ligneDonnees[indices.details]);
     const emailClient = ligneDonnees[indices.email];
@@ -398,7 +426,7 @@ function mettreAJourDetailsReservation(idReservation, nouveauxArrets) {
 
     try {
       if (idEvenement) {
-        ressourceEvenement = Calendar.Events.get(CONFIG.ID_CALENDRIER, idEvenement);
+        ressourceEvenement = executeWithRetry(() => Calendar.Events.get(CONFIG.ID_CALENDRIER, idEvenement));
         dateDebutOriginale = new Date(ressourceEvenement.start.dateTime);
       }
     } catch (e) {
@@ -417,7 +445,7 @@ function mettreAJourDetailsReservation(idReservation, nouveauxArrets) {
       const nouvelleDateFin = new Date(dateDebutOriginale.getTime() + nouvelleDuree * 60000);
       ressourceEvenement.end.dateTime = nouvelleDateFin.toISOString();
       ressourceEvenement.description = ressourceEvenement.description.replace(/Détails: .*/, `Détails: ${nouveauxDetails}`);
-      Calendar.Events.patch(ressourceEvenement, CONFIG.ID_CALENDRIER, idEvenement);
+      executeWithRetry(() => Calendar.Events.patch(ressourceEvenement, CONFIG.ID_CALENDRIER, idEvenement));
     }
 
     feuille.getRange(indexLigne + 1, indices.details + 1).setValue(nouveauxDetails);
@@ -433,29 +461,44 @@ function mettreAJourDetailsReservation(idReservation, nouveauxArrets) {
   }
 }
 
-function replanifierReservation(idReservation, nouvelleDate, nouvelleHeure) {
-  if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
+function replanifierReservation(idReservation, nouvelleDate, nouvelleHeure, reservationData = null) {
+  // L'accès est déjà vérifié par la fonction appelante (soit admin, soit client)
   const CONFIG = getConfiguration();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return { success: false, error: "Le système est occupé." };
 
   try {
     const feuille = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Facturation");
-    const enTete = feuille.getRange(1, 1, 1, feuille.getLastColumn()).getValues()[0];
-    const indices = {
-      idResa: enTete.indexOf("ID Réservation"), idEvent: enTete.indexOf("Event ID"),
-      email: enTete.indexOf("Client (Email)"), date: enTete.indexOf("Date"),
-      montant: enTete.indexOf("Montant"), details: enTete.indexOf("Détails")
-    };
-    if (Object.values(indices).some(i => i === -1)) throw new Error("Colonnes requises introuvables.");
+    let ligneDonnees;
+    let indexLigne = -1;
 
-    const donnees = feuille.getDataRange().getValues();
-    const indexLigne = donnees.findIndex(row => String(row[indices.idResa]).trim() === String(idReservation).trim());
+    if (reservationData) {
+      // Si les données sont passées, on évite une lecture.
+      // On a juste besoin de trouver l'index de la ligne pour la mise à jour.
+      const idColIndex = feuille.getRange(1, 1, 1, feuille.getLastColumn()).getValues()[0].indexOf("ID Réservation");
+      const allIds = feuille.getRange(2, idColIndex + 1, feuille.getLastRow() - 1, 1).getValues().flat();
+      indexLigne = allIds.findIndex(id => String(id).trim() === idReservation) + 2; // +2 pour l'offset
+      ligneDonnees = Object.values(reservationData); // Convertir l'objet en tableau pour la compatibilité
+    } else {
+      // Fallback si les données ne sont pas passées (appel admin direct)
+      const enTete = feuille.getRange(1, 1, 1, feuille.getLastColumn()).getValues()[0];
+      const idResaIndex = enTete.indexOf("ID Réservation");
+      const donnees = feuille.getDataRange().getValues();
+      const foundIndex = donnees.findIndex(row => String(row[idResaIndex]).trim() === String(idReservation).trim());
+      if (foundIndex === -1) return { success: false, error: "Réservation introuvable." };
+      indexLigne = foundIndex + 1;
+      ligneDonnees = donnees[foundIndex];
+    }
+
     if (indexLigne === -1) return { success: false, error: "Réservation introuvable." };
 
-    const ligneDonnees = donnees[indexLigne];
-    const idEvenementAncien = String(ligneDonnees[indices.idEvent]).trim();
-    const details = String(ligneDonnees[indices.details]);
+    const enTete = feuille.getRange(1, 1, 1, feuille.getLastColumn()).getValues()[0];
+    const idEventIndex = enTete.indexOf("Event ID");
+    const detailsIndex = enTete.indexOf("Détails");
+    const dateIndex = enTete.indexOf("Date");
+
+    const idEvenementAncien = String(ligneDonnees[idEventIndex]).trim();
+    const details = String(ligneDonnees[detailsIndex]);
 
     const matchDuree = details.match(/(\d+)min/);
     const dureeCalculee = matchDuree ? parseInt(matchDuree[1], 10) : CONFIG.DUREE_BASE;
@@ -471,7 +514,7 @@ function replanifierReservation(idReservation, nouvelleDate, nouvelleHeure) {
     
     let ressourceEvenement;
     try {
-        ressourceEvenement = idEvenementAncien ? Calendar.Events.get(CONFIG.ID_CALENDRIER, idEvenementAncien) : null;
+        ressourceEvenement = idEvenementAncien ? executeWithRetry(() => Calendar.Events.get(CONFIG.ID_CALENDRIER, idEvenementAncien)) : null;
     } catch(e) {
         ressourceEvenement = null;
         Logger.log(`Événement ancien ${idEvenementAncien} introuvable pour déplacement.`);
@@ -483,8 +526,8 @@ function replanifierReservation(idReservation, nouvelleDate, nouvelleHeure) {
             start: { dateTime: nouvelleDateDebut.toISOString() },
             end: { dateTime: nouvelleDateFin.toISOString() }
         };
-        Calendar.Events.patch(ressourceMaj, CONFIG.ID_CALENDRIER, idEvenementAncien);
-        feuille.getRange(indexLigne + 1, indices.date + 1).setValue(nouvelleDateDebut);
+        executeWithRetry(() => Calendar.Events.patch(ressourceMaj, CONFIG.ID_CALENDRIER, idEvenementAncien));
+        feuille.getRange(indexLigne + 1, dateIndex + 1).setValue(nouvelleDateDebut);
     } else {
         feuille.getRange(indexLigne + 1, indices.date + 1).setValue(nouvelleDateDebut);
         Logger.log(`La réservation ${idReservation} a été mise à jour dans le sheet, mais l'événement calendar n'a pas été trouvé pour être déplacé.`);
@@ -502,8 +545,12 @@ function replanifierReservation(idReservation, nouvelleDate, nouvelleHeure) {
 
 function appliquerRemiseReservation(idReservation, typeRemise, valeurRemise, nbTourneesOffertesClient) {
   if (!isUserAdmin(Session.getActiveUser().getEmail())) return { success: false, error: "Accès non autorisé." };
-  const CONFIG = getConfiguration();
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    return { success: false, error: "Le système est occupé. Veuillez réessayer." };
+  }
   try {
+    const CONFIG = getConfiguration();
     const sheet = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName('Facturation');
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
@@ -579,6 +626,8 @@ function appliquerRemiseReservation(idReservation, typeRemise, valeurRemise, nbT
   } catch (e) {
     Logger.log(`Erreur dans appliquerRemiseReservation: ${e.stack}`);
     return { success: false, error: e.message };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -646,67 +695,53 @@ function formaterReservationPourAdmin(ligne, indices) {
   }
 }
 
-function trouverTableBordereau(body) {
-    const tables = body.getTables();
-    for (let i = 0; i < tables.length; i++) {
-        const table = tables[i];
-        if (table.getNumRows() > 0) {
-            const premiereLigne = table.getRow(0);
-            if (premiereLigne.getCell(0).getText().trim() === 'Date' && premiereLigne.getCell(2).getText().trim() === 'Détail') {
-                return table;
-            }
-        }
-    }
-    return null;
-}
 
+/**
+ * Valide la configuration critique de l'application.
+ * Vérifie les formats, la cohérence et l'accès aux services Google.
+ * @throws {Error} Lance une erreur si un problème de configuration est détecté.
+ */
 function validerConfiguration() {
-    const CONFIG = getConfiguration();
-    const requis = ['ID_FEUILLE_CALCUL', 'ID_MODELE_FACTURE', 'ID_DOSSIER_ARCHIVES', 'NOM_ENTREPRISE'];
-    requis.forEach(constant => {
-        if (typeof CONFIG[constant] === 'undefined' || !CONFIG[constant]) {
-            throw new Error(`La constante de configuration "${constant}" est manquante ou vide. Veuillez la définir.`);
-        }
-    });
+  const CONFIG = getConfiguration();
+  const erreurs = [];
+
+  // --- Vérification des formats ---
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(CONFIG.ADMIN_EMAIL)) {
+    erreurs.push(`Format de l'e-mail administrateur invalide : ${CONFIG.ADMIN_EMAIL}`);
+  }
+
+  if (!/^\d{14}$/.test(CONFIG.SIRET)) {
+    erreurs.push(`Format du SIRET invalide. Il doit contenir 14 chiffres.`);
+  }
+
+  // --- Vérification de la cohérence ---
+  if (CONFIG.HEURE_DEBUT_SERVICE >= CONFIG.HEURE_FIN_SERVICE) {
+    erreurs.push(`L'heure de début de service (${CONFIG.HEURE_DEBUT_SERVICE}) doit être antérieure à l'heure de fin (${CONFIG.HEURE_FIN_SERVICE}).`);
+  }
+
+  // --- Test d'accès aux IDs des services Google ---
+  try { DriveApp.getFolderById(CONFIG.ID_DOSSIER_ARCHIVES); } catch (e) { erreurs.push("L'ID du dossier d'archives (ID_DOSSIER_ARCHIVES) est invalide ou l'accès est refusé."); }
+  try { DriveApp.getFolderById(CONFIG.ID_DOSSIER_TEMPORAIRE); } catch (e) { erreurs.push("L'ID du dossier temporaire (ID_DOSSIER_TEMPORAIRE) est invalide ou l'accès est refusé."); }
+  try { DocumentApp.openById(CONFIG.ID_MODELE_FACTURE); } catch (e) { erreurs.push("L'ID du modèle de facture (ID_MODELE_FACTURE) est invalide ou l'accès est refusé."); }
+  try { SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL); } catch (e) { erreurs.push("L'ID de la feuille de calcul (ID_FEUILLE_CALCUL) est invalide ou l'accès est refusé."); }
+  try { DocumentApp.openById(CONFIG.ID_DOCUMENT_CGV); } catch (e) { erreurs.push("L'ID du document des CGV (ID_DOCUMENT_CGV) est invalide ou l'accès est refusé."); }
+  try { CalendarApp.getCalendarById(CONFIG.ID_CALENDRIER); } catch (e) { erreurs.push("L'ID du calendrier (ID_CALENDRIER) est invalide ou l'accès est refusé."); }
+
+  // --- Gestion centralisée des erreurs ---
+  if (erreurs.length > 0) {
+    const messageErreur = `La validation de la configuration a échoué avec ${erreurs.length} erreur(s) :\n- ` + erreurs.join("\n- ");
+    Logger.log(messageErreur);
+    // Envoie un e-mail à l'administrateur pour l'alerter immédiatement.
+    MailApp.sendEmail(CONFIG.ADMIN_EMAIL, `[${CONFIG.NOM_ENTREPRISE}] ERREUR CRITIQUE DE CONFIGURATION`, messageErreur);
+    // Stoppe l'exécution de l'application en lançant une erreur.
+    throw new Error(messageErreur);
+  }
+
+  Logger.log("Configuration validée avec succès.");
+  return true;
 }
 
-function logAdminAction(action, details) {
-    Logger.log(`Action Admin: ${action} - ${details}`);
-}
-
-function obtenirOuCreerDossier(parent, nom) {
-    const it = parent.getFoldersByName(nom);
-    return it.hasNext() ? it.next() : parent.createFolder(nom);
-}
-
-function formaterDatePersonnalise(date, format) {
-    return Utilities.formatDate(date, Session.getScriptTimeZone(), format);
-}
-
-function obtenirIndicesEnTetes(sheet, headers) {
-    const enTetesFeuille = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const indices = {};
-    headers.forEach(header => {
-        const index = enTetesFeuille.indexOf(header);
-        if (index !== -1) {
-            indices[header] = index;
-        } else {
-            const trimmedIndex = enTetesFeuille.findIndex(h => String(h).trim() === header.trim());
-            if (trimmedIndex !== -1) {
-                indices[header] = trimmedIndex;
-            } else {
-                throw new Error(`La colonne "${header}" est introuvable dans la feuille "${sheet.getName()}".`);
-            }
-        }
-    });
-    return indices;
-}
-
-function formaterDateEnFrancais(date) {
-    const jours = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-    const mois = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-    return `${jours[date.getDay()]} ${date.getDate()} ${mois[date.getMonth()]} ${date.getFullYear()}`;
-}
 
 
 function envoyerFacturesControlees() {
@@ -714,9 +749,14 @@ function envoyerFacturesControlees() {
     SpreadsheetApp.getUi().alert("Action non autorisée.");
     return;
   }
-  const CONFIG = getConfiguration();
-  const ui = SpreadsheetApp.getUi();
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    SpreadsheetApp.getUi().alert("Le système est occupé à envoyer des factures. Veuillez réessayer dans un instant.");
+    return;
+  }
   try {
+    const CONFIG = getConfiguration();
+    const ui = SpreadsheetApp.getUi();
     logAdminAction("Envoi Factures", "Démarré");
     const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
     const feuilleFacturation = ss.getSheetByName("Facturation");
@@ -753,16 +793,18 @@ function envoyerFacturesControlees() {
           throw new Error(`Données manquantes sur la ligne ${item.indexLigne}.`);
         }
 
-        const fichierPDF = DriveApp.getFileById(idPdf);
+        const fichierPDF = executeWithRetry(() => DriveApp.getFileById(idPdf));
         const sujet = sujetEmail.replace('{{numero_facture}}', numFacture);
         const corps = corpsEmail.replace('{{numero_facture}}', numFacture);
 
-        MailApp.sendEmail({
-          to: emailClient,
-          subject: sujet,
-          body: corps,
-          attachments: [fichierPDF.getAs(MimeType.PDF)],
-          name: CONFIG.NOM_ENTREPRISE
+        executeWithRetry(() => {
+          MailApp.sendEmail({
+            to: emailClient,
+            subject: sujet,
+            body: corps,
+            attachments: [fichierPDF.getAs(MimeType.PDF)],
+            name: CONFIG.NOM_ENTREPRISE
+          });
         });
 
         // Décocher la case après envoi réussi
@@ -784,6 +826,8 @@ function envoyerFacturesControlees() {
     Logger.log(`ERREUR FATALE dans envoyerFacturesControlees: ${e.stack}`);
     logAdminAction("Envoi Factures", `Échec critique: ${e.message}`);
     ui.showModalDialog(HtmlService.createHtmlOutput(`<p>Une erreur critique est survenue:</p><pre>${e.message}</pre>`), "Erreur Critique");
+  } finally {
+    lock.releaseLock();
   }
 }
 

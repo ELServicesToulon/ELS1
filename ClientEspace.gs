@@ -141,11 +141,21 @@ function obtenirReservationsClient(token) {
  * @returns {Object} Résultat de l'opération.
  */
 function mettreAJourDetailsReservationClient(token, idReservation, nouveauxArrets) {
-  const email = validerTokenClient(token, idReservation);
-  if (!email) {
-    return { success: false, error: "Accès non autorisé ou session expirée." };
+  const validation = validerTokenEtRecupererReservation(token, idReservation);
+  if (!validation) {
+    return { success: false, error: "Accès non autorisé, session expirée ou réservation introuvable." };
   }
-  return mettreAJourDetailsReservation(idReservation, nouveauxArrets);
+
+  const { reservationData } = validation;
+  const CONFIG = getConfiguration();
+
+  const dateDebut = new Date(reservationData["Date"]);
+  if ((dateDebut.getTime() - new Date().getTime()) < (CONFIG.DELAI_MODIFICATION_MINUTES * 60 * 1000)) {
+      return { success: false, error: "Le délai pour modifier cette course est dépassé." };
+  }
+
+  // L'appelant n'a pas besoin d'être admin, la validation du token client suffit
+  return mettreAJourDetailsReservation(idReservation, nouveauxArrets, reservationData);
 }
 
 
@@ -158,52 +168,54 @@ function mettreAJourDetailsReservationClient(token, idReservation, nouveauxArret
  * @returns {Object} Résultat de l'opération.
  */
 function replanifierReservationClient(token, idReservation, nouvelleDate, nouvelleHeure) {
-  const email = validerTokenClient(token, idReservation);
-  if (!email) {
-    return { success: false, error: "Accès non autorisé ou session expirée." };
+  const validation = validerTokenEtRecupererReservation(token, idReservation);
+  if (!validation) {
+    return { success: false, error: "Accès non autorisé, session expirée ou réservation introuvable." };
   }
 
+  const { reservationData } = validation;
   const CONFIG = getConfiguration();
-  const feuille = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Facturation");
-  const idResaIndex = feuille.getRange(1, 1, 1, feuille.getLastColumn()).getValues()[0].indexOf("ID Réservation");
-  const dateIndex = feuille.getRange(1, 1, 1, feuille.getLastColumn()).getValues()[0].indexOf("Date");
-  const donnees = feuille.getDataRange().getValues();
-  const ligneResa = donnees.find(row => row[idResaIndex] === idReservation);
 
-  if (ligneResa) {
-      const dateDebut = new Date(ligneResa[dateIndex]);
-      if ((dateDebut.getTime() - new Date().getTime()) < (CONFIG.DELAI_MODIFICATION_MINUTES * 60 * 1000)) {
-          return { success: false, error: "Le délai pour modifier cette course est dépassé." };
-      }
-  } else {
-      return { success: false, error: "Réservation introuvable." };
+  const dateDebut = new Date(reservationData["Date"]);
+  if ((dateDebut.getTime() - new Date().getTime()) < (CONFIG.DELAI_MODIFICATION_MINUTES * 60 * 1000)) {
+      return { success: false, error: "Le délai pour modifier cette course est dépassé." };
   }
 
-  return replanifierReservation(idReservation, nouvelleDate, nouvelleHeure);
+  // Passer les données déjà chargées pour éviter une relecture
+  return replanifierReservation(idReservation, nouvelleDate, nouvelleHeure, reservationData);
 }
 
 
 /**
- * Fonction utilitaire pour valider un token et vérifier que le client
- * est bien le propriétaire de la réservation qu'il tente de modifier.
+ * Fonction utilitaire pour valider un token, vérifier que le client est bien le propriétaire
+ * de la réservation, et retourner les données de cette réservation.
  * @param {string} token Le jeton de session.
  * @param {string} idReservation L'ID de la réservation.
- * @returns {string|null} L'e-mail du client si valide, sinon null.
+ * @returns {Object|null} Un objet avec les données de la ligne et les en-têtes, ou null si invalide.
  */
-function validerTokenClient(token, idReservation) {
+function validerTokenEtRecupererReservation(token, idReservation) {
   const email = CacheService.getScriptCache().get(token);
   if (!email) return null;
 
   const CONFIG = getConfiguration();
-  const feuille = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Facturation");
-  const enTetes = ["ID Réservation", "Client (Email)"];
-  const indices = obtenirIndicesEnTetes(feuille, enTetes);
+  const sheet = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Facturation");
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const idColIndex = headers.indexOf("ID Réservation");
+  const emailColIndex = headers.indexOf("Client (Email)");
 
-  const donnees = feuille.getDataRange().getValues();
-  const ligneResa = donnees.find(row => row[indices["ID Réservation"]] === idReservation);
+  if (idColIndex === -1 || emailColIndex === -1) {
+    throw new Error("Colonnes 'ID Réservation' ou 'Client (Email)' introuvables.");
+  }
 
-  if (ligneResa && String(ligneResa[indices["Client (Email)"]]).trim().toLowerCase() === email.trim().toLowerCase()) {
-    return email;
+  const data = sheet.getDataRange().getValues();
+  const rowData = data.find(row => String(row[idColIndex]).trim() === idReservation);
+
+  if (rowData && String(rowData[emailColIndex]).trim().toLowerCase() === email.trim().toLowerCase()) {
+    const reservationData = {};
+    headers.forEach((header, i) => {
+        reservationData[header] = rowData[i];
+    });
+    return { reservationData: reservationData };
   }
 
   return null;
@@ -216,6 +228,8 @@ function validerTokenClient(token, idReservation) {
  * @param {string} source La source de l'action (ex: "Formulaire Réservation").
  */
 function enregistrerConsentementRGPD(email, consentText, source) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
   try {
     const CONFIG = getConfiguration();
     const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
@@ -233,5 +247,7 @@ function enregistrerConsentementRGPD(email, consentText, source) {
   } catch (e) {
     Logger.log(`Erreur lors de l'enregistrement du consentement RGPD pour ${email}: ${e.stack}`);
     // Ne pas bloquer l'utilisateur pour une erreur de log
+  } finally {
+    lock.releaseLock();
   }
 }

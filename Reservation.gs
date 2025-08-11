@@ -149,8 +149,10 @@ function creerReservationUnique(item, client, clientPourCalcul, destinataire, re
  * Enregistre ou met à jour un destinataire dans la feuille "Destinataires".
  */
 function enregistrerOuMajDestinataire(destinataire, emailClientAssocie) {
-  const CONFIG = getConfiguration();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
   try {
+    const CONFIG = getConfiguration();
     const sheet = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL).getSheetByName("Destinataires");
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
@@ -183,6 +185,8 @@ function enregistrerOuMajDestinataire(destinataire, emailClientAssocie) {
     }
   } catch(e) {
       Logger.log(`Erreur lors de l'enregistrement du destinataire ${destinataire.nom}: ${e.message}`);
+  } finally {
+    lock.releaseLock();
   }
 }
 

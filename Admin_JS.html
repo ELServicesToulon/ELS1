@@ -189,15 +189,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const heureDebut = dateDebut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
         const dateAffichee = dateDebut.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const prix = typeof resa.amount === 'number' ? resa.amount.toFixed(2) : 'N/A';
-        const infoRemiseHtml = resa.infoRemise ? `<span class="info-remise">${resa.infoRemise}</span>` : '';
+
+        // --- SÉCURITÉ: Échapper les données dynamiques ---
+        const clientNameSafe = sanitize(resa.clientName);
+        const detailsSafe = sanitize(resa.details);
+        const infoRemiseSafe = sanitize(resa.infoRemise);
+        const statutSafe = sanitize(resa.statut);
+
+        const infoRemiseHtml = infoRemiseSafe ? `<span class="info-remise">${infoRemiseSafe}</span>` : '';
         const dateHtml = montrerDate ? `<strong>${dateAffichee}</strong> &agrave; ` : '';
-        const statutHtml = resa.statut ? `<span class="statut-badge" style="background-color: #7f8c8d; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px;">${resa.statut}</span>` : '';
+        const statutHtml = statutSafe ? `<span class="statut-badge" style="background-color: #7f8c8d; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px;">${statutSafe}</span>` : '';
 
         return `
             <div class="carte-reservation">
                 <div class="carte-heure">${dateHtml}${heureDebut}</div>
                 <div class="carte-details" tabindex="0" role="group" aria-label="Détails de la course">
-                    <strong>${resa.clientName}</strong>: ${resa.details}
+                    <strong>${clientNameSafe}</strong>: ${detailsSafe}
                     <small>${prix} € ${infoRemiseHtml} (~${resa.km} km) ${statutHtml}</small>
                 </div>
                 <div class="carte-actions">
@@ -306,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const arretsActuels = match ? parseInt(match[1], 10) : 0;
         if (!contenuModale) return;
         contenuModale.innerHTML = `
-            <h3 id="modale-titre">Modifier les arrêts</h3><p><strong>Client :</strong> ${reservation.clientName}</p>
+            <h3 id="modale-titre">Modifier les arrêts</h3><p><strong>Client :</strong> ${sanitize(reservation.clientName)}</p>
             <div class="groupe-formulaire"><label>Nombre d'arrêts supplémentaires :</label><div class="champ-compteur"><button type="button" class="btn-compteur btn-retirer">-</button><span class="valeur-compteur">${arretsActuels}</span><button type="button" class="btn-compteur btn-ajouter">+</button></div></div>
             <div class="modale-pied-de-page"><button type="button" id="btn-confirmer-maj" class="btn btn-primaire">Valider la modification</button></div>`;
         if (modale) modale.classList.remove('hidden');
@@ -323,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const duree = (new Date(reservation.end) - new Date(reservation.start)) / 60000;
         if (!contenuModale) return;
         contenuModale.innerHTML = `
-            <h3 id="modale-titre">Déplacer la course</h3><p><strong>Client :</strong> ${reservation.clientName}</p>
+            <h3 id="modale-titre">Déplacer la course</h3><p><strong>Client :</strong> ${sanitize(reservation.clientName)}</p>
             <div class="groupe-formulaire"><label for="champ-nouvelle-date">Nouvelle date :</label><input type="date" id="champ-nouvelle-date" class="champ-formulaire" value="${new Date(reservation.start).toISOString().split('T')[0]}"></div>
             <div id="conteneur-creneaux-replanif" class="hidden"><label>Nouveau créneau :</label><div id="grille-creneaux-replanif"></div></div>
             <div class="modale-pied-de-page"><button type="button" id="btn-confirmer-replanif" class="btn btn-primaire" disabled>Confirmer le déplacement</button></div>`;
@@ -361,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nbTourneesOffertesActuelClient = client ? client.nbTourneesOffertes : 0; 
         if (!contenuModale) return;
         contenuModale.innerHTML = `
-            <h3 id="modale-titre">Appliquer une remise</h3><p><strong>Course :</strong> ${reservation.details}</p><p><strong>Client :</strong> ${reservation.clientName} (${reservation.clientEmail})</p><p><strong>Prix actuel :</strong> ${reservation.amount.toFixed(2)} €</p>
+            <h3 id="modale-titre">Appliquer une remise</h3><p><strong>Course :</strong> ${sanitize(reservation.details)}</p><p><strong>Client :</strong> ${sanitize(reservation.clientName)} (${sanitize(reservation.clientEmail)})</p><p><strong>Prix actuel :</strong> ${reservation.amount.toFixed(2)} €</p>
             <div class="groupe-formulaire"><label for="type-remise-tournee">Type de Remise</label><select id="type-remise-tournee" class="champ-formulaire"><option value="">Aucune</option><option value="Pourcentage">Pourcentage</option><option value="Montant Fixe">Montant Fixe</option><option value="Tournées Offertes">Tournées Offertes</option></select></div>
             <div class="groupe-formulaire hidden" id="conteneur-valeur-remise-tournee"><label for="valeur-remise-tournee">Valeur Remise</label><input type="number" id="valeur-remise-tournee" class="champ-formulaire" step="0.01" min="0" value="0"></div>
             <div class="groupe-formulaire hidden" id="conteneur-nb-tournees-offertes-tournee"><label>Tournées Offertes restantes pour le client</label><input type="number" class="champ-formulaire" value="${nbTourneesOffertesActuelClient}" readonly></div>
@@ -389,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!contenuModale) return;
         contenuModale.innerHTML = `
             <h3 id="modale-titre">Confirmer la suppression</h3><p>Êtes-vous sûr de vouloir supprimer la course suivante ? Cette action est irréversible.</p>
-            <p><strong>Client :</strong> ${reservation.clientName}</p><p><strong>Détails :</strong> ${reservation.details}</p><p><strong>Date :</strong> ${new Date(reservation.start).toLocaleString('fr-FR', {dateStyle: 'full', timeStyle: 'short'})}</p>
+            <p><strong>Client :</strong> ${sanitize(reservation.clientName)}</p><p><strong>Détails :</strong> ${sanitize(reservation.details)}</p><p><strong>Date :</strong> ${new Date(reservation.start).toLocaleString('fr-FR', {dateStyle: 'full', timeStyle: 'short'})}</p>
             <div class="modale-pied-de-page"><button type="button" id="btn-annuler-suppression" class="btn btn-secondaire">Annuler</button><button type="button" id="btn-confirmer-suppression" class="btn btn-erreur">Supprimer définitivement</button></div>`;
         if (modale) modale.classList.remove('hidden');
         document.getElementById('btn-annuler-suppression')?.addEventListener('click', () => modale?.classList.add('hidden'));
