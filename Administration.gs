@@ -184,7 +184,6 @@ function genererFactures() {
     Logger.log(`ERREUR FATALE dans genererFactures: ${e.stack}`);
     logAdminAction("Génération Factures", `Échec critique: ${e.message}`);
     ui.showModalDialog(HtmlService.createHtmlOutput(`<p>Une erreur critique est survenue:</p><pre>${e.message}</pre>`), "Erreur Critique");
-  }
   } finally {
     lock.releaseLock();
   }
