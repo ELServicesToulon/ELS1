@@ -90,9 +90,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 <h4>${heureDebut} - ${resa.clientName} ${statutHtml}</h4>
                 <p><strong>Détails :</strong> ${resa.details}</p>
                 <p><strong>Adresse :</strong> ${resa.destinationAddress || 'Non spécifiée'}</p>
+
+                <div class="details-livraison">
+                  <div class="groupe-formulaire">
+                    <label for="note-${resa.id}">Note de livraison :</label>
+                    <textarea id="note-${resa.id}" rows="2"></textarea>
+                  </div>
+                  <div class="groupe-checkboxes">
+                    <label><input type="checkbox" data-option="frigo"> Frigo</label>
+                    <label><input type="checkbox" data-option="tampon"> Tampon</label>
+                    <label><input type="checkbox" data-option="reprise"> Reprise</label>
+                    <label><input type="checkbox" data-option="extras"> Extras</label>
+                  </div>
+                </div>
+
                 <div class="actions-livraison">
                     <button class="btn btn-secondaire btn-itineraire" ${!resa.destinationAddress ? 'disabled' : ''}>Itinéraire</button>
                     <button class="btn btn-primaire btn-statut" data-prochain-statut="${prochainStatut || ''}" ${!prochainStatut ? 'disabled' : ''}>${actionTexte}</button>
+                    <button class="btn btn-primaire btn-enregistrer">Enregistrer Notes</button>
                 </div>
             `;
             contenuReservations.appendChild(resaElement);
@@ -124,6 +139,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(adresse)}`;
                     window.open(url, '_blank');
                 }
+            });
+        });
+
+        document.querySelectorAll('.btn-enregistrer').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const itemDiv = e.target.closest('.reservation-item');
+                const idReservation = itemDiv?.dataset.id;
+                if (!idReservation) return;
+
+                const note = itemDiv.querySelector(`#note-${idReservation}`).value;
+                const options = Array.from(itemDiv.querySelectorAll('.groupe-checkboxes input:checked'))
+                                     .map(input => input.dataset.option);
+
+                basculerIndicateurChargement(true);
+                google.script.run
+                    .withSuccessHandler(reponse => {
+                        basculerIndicateurChargement(false);
+                        if (reponse.success) {
+                            afficherNotification("Notes enregistrées.", "succes");
+                        } else {
+                            afficherErreur(reponse.error);
+                        }
+                    })
+                    .withFailureHandler(afficherErreur)
+                    .enregistrerNotesEtOptions(idReservation, note, options);
             });
         });
     }
