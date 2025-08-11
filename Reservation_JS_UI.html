@@ -53,6 +53,51 @@ function afficherErreur(erreur) {
   afficherNotification(`Erreur : ${messageErreur}`, "erreur");
   console.error(erreur);
 }
+
+/**
+ * Affiche les créneaux horaires dans la modale, en désactivant ceux qui sont passés.
+ * @param {string[]} creneauxDisponibles Tableau des créneaux disponibles (ex: ["09h00", "09h15"]).
+ */
+function afficherCreneaux(creneauxDisponibles) {
+    const { grilleSelectionCreneau } = window.ui;
+    const { dateSelectionnee } = window.etat; // Format attendu: "YYYY-MM-DD"
+
+    if (!grilleSelectionCreneau || !dateSelectionnee) {
+        console.error("Impossible d'afficher les créneaux : élément UI ou date manquants.");
+        afficherErreur("Une erreur technique est survenue lors de l'affichage des créneaux.");
+        return;
+    }
+
+    grilleSelectionCreneau.innerHTML = '';
+    const maintenant = new Date();
+
+    if (!creneauxDisponibles || creneauxDisponibles.length === 0) {
+        grilleSelectionCreneau.innerHTML = '<p class="aucun-creneau">Aucun créneau disponible pour cette journée.</p>';
+        return;
+    }
+
+    const [annee, mois, jour] = dateSelectionnee.split('-').map(Number);
+
+    creneauxDisponibles.forEach(heureStr => {
+        const creneauEl = document.createElement('button');
+        creneauEl.type = 'button';
+        creneauEl.className = 'btn-creneau';
+        creneauEl.textContent = heureStr.replace('h', ':');
+        creneauEl.dataset.heure = heureStr;
+
+        const [heures, minutes] = heureStr.split('h').map(Number);
+
+        const dateCreneau = new Date(annee, mois - 1, jour, heures, minutes);
+
+        if (dateCreneau < maintenant) {
+            creneauEl.disabled = true;
+            creneauEl.classList.add('desactive');
+            creneauEl.title = 'Créneau expiré';
+        }
+
+        grilleSelectionCreneau.appendChild(creneauEl);
+    });
+}
 </script>
 
 

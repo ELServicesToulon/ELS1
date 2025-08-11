@@ -33,6 +33,20 @@ function configurerEcouteursEvenements() {
     }
   });
 
+  // Gère la sélection au clavier pour l'accessibilité.
+  ui.grilleCalendrier?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault(); // Empêche le défilement de la page avec la barre d'espace
+      const jourClique = e.target.closest('.jour-calendrier');
+      if (jourClique && !jourClique.classList.contains('desactive')) {
+        const dateString = jourClique.dataset.date;
+        if(dateString) {
+          ouvrirConfigurationTournee(dateString);
+        }
+      }
+    }
+  });
+
   // Navigation du calendrier
   ui.btnMoisPrecedent?.addEventListener('click', () => changerMois(-1));
   ui.btnMoisSuivant?.addEventListener('click', () => changerMois(1));

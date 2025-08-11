@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     formulaireConnexionClient.style.display = 'none';
                     const successMessageDiv = document.createElement('div');
                     successMessageDiv.className = 'message-succes-connexion';
-                    successMessageDiv.innerHTML = `✅ ${reponse.message}<br><small>Veuillez consulter votre boîte de réception (et vos spams).</small>`;
+                    successMessageDiv.innerHTML = `✅ ${sanitize(reponse.message)}<br><small>Veuillez consulter votre boîte de réception (et vos spams).</small>`;
                     parent.appendChild(successMessageDiv);
                 } else {
                     afficherErreurConnexion(reponse.message || "Une erreur est survenue.");
@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         google.script.run
             .withSuccessHandler(reponse => {
                 if (reponse.success && reponse.client) {
-                    document.getElementById('message-bienvenue-client').textContent = `Bienvenue, ${reponse.client.nom}`;
+                    document.getElementById('message-bienvenue-client').textContent = `Bienvenue, ${sanitize(reponse.client.nom)}`;
                     document.getElementById('conteneur-app').classList.remove('hidden');
                     document.getElementById('non-connecte').classList.add('hidden');
                     chargerReservationsClient(); // On utilise le token stocké pour charger les résas
@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="reservation-item" data-id="${resa.id}">
                     <div class="reservation-details">
                         <h4>${dateFormatee} à ${heureFormatee}</h4>
-                        <p><strong>Détails :</strong> ${resa.details}</p>
+                        <p><strong>Détails :</strong> ${sanitize(resa.details)}</p>
                         <p><strong>Montant :</strong> ${resa.amount.toFixed(2)} €</p>
                     </div>
                     <div class="reservation-actions">
@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="reservation-item reservation-item-passee">
                     <div class="reservation-details">
                         <h4>${dateFormatee} à ${heureFormatee}</h4>
-                        <p><strong>Détails :</strong> ${resa.details}</p>
+                        <p><strong>Détails :</strong> ${sanitize(resa.details)}</p>
                         <p><strong>Montant :</strong> ${resa.amount.toFixed(2)} €</p>
                     </div>
                 </div>

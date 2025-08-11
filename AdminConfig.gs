@@ -54,14 +54,19 @@ function validateTarifs(tarifs) {
  * @param {*} value - La nouvelle valeur.
  */
 function updateSingleConfigValue(key, value) {
-  const properties = PropertiesService.getScriptProperties();
-  const overridesStr = properties.getProperty('CONFIG_OVERRIDES');
-  const overrides = overridesStr ? JSON.parse(overridesStr) : {};
-
-  overrides[key] = value;
-
-  properties.setProperty('CONFIG_OVERRIDES', JSON.stringify(overrides));
-  Logger.log(`Valeur de configuration unique mise à jour: ${key} = ${value}`);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000); // Attendre jusqu'à 30s pour obtenir le verrou
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    let valueToStore = value;
+    if (typeof value === 'object') {
+      valueToStore = JSON.stringify(value);
+    }
+    properties.setProperty(key, valueToStore);
+    Logger.log(`Valeur de configuration unique mise à jour: ${key}`);
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 
@@ -76,6 +81,10 @@ function saveConfiguration(newConfig) {
     return { success: false, message: "Action non autorisée. Seul l'administrateur peut modifier la configuration." };
   }
 
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    return { success: false, message: "Le système est occupé, un autre processus de sauvegarde est en cours." };
+  }
   try {
     // --- Validation des données reçues ---
     if (!newConfig) {
@@ -106,24 +115,37 @@ function saveConfiguration(newConfig) {
         throw new Error("Le préfixe de facture ne peut pas être vide.");
     }
 
+    // Préparation des propriétés à sauvegarder
+    const propertiesToSave = {};
+
+    // Liste des clés que cette interface est autorisée à modifier
+    const modifiableKeys = [
+      'DELAI_MODIFICATION_MINUTES', 'PROCHAIN_NUMERO_FACTURE', 'PREFIXE_FACTURE', 'TARIFS',
+      'ID_CALENDRIER', 'ID_FEUILLE_CALCUL', 'ID_MODELE_FACTURE', 'ID_DOSSIER_ARCHIVES'
+      // Ajoutez d'autres clés de l'interface admin ici
+    ];
+
+    for (const key of modifiableKeys) {
+      if (newConfig.hasOwnProperty(key)) {
+        let value = newConfig[key];
+        // Stringify les objets/tableaux avant de les stocker
+        if (typeof value === 'object' && value !== null) {
+          value = JSON.stringify(value);
+        }
+        // Nettoyer les chaînes de caractères
+        if (typeof value === 'string') {
+          value = value.trim();
+        }
+        propertiesToSave[key] = value;
+      }
+    }
+
+    // Correction pour les types spécifiques
+    propertiesToSave.DELAI_MODIFICATION_MINUTES = delai;
+    propertiesToSave.PROCHAIN_NUMERO_FACTURE = prochainNumero;
 
     const properties = PropertiesService.getScriptProperties();
-    // On récupère les anciennes surcharges pour ne pas écraser des clés non modifiables dans cette interface
-    const overridesStr = properties.getProperty('CONFIG_OVERRIDES');
-    const overrides = overridesStr ? JSON.parse(overridesStr) : {};
-
-    // On met à jour les valeurs modifiables
-    overrides.DELAI_MODIFICATION_MINUTES = delai;
-    overrides.TARIFS = newConfig.TARIFS;
-    overrides.PROCHAIN_NUMERO_FACTURE = prochainNumero;
-    overrides.PREFIXE_FACTURE = newConfig.PREFIXE_FACTURE.trim();
-    // On met à jour les IDs
-    idsToValidate.forEach(id => {
-        overrides[id] = newConfig[id].trim();
-    });
-
-
-    properties.setProperty('CONFIG_OVERRIDES', JSON.stringify(overrides));
+    properties.setProperties(propertiesToSave, false); // `false` pour ne pas supprimer les autres propriétés
 
     Logger.log(`Configuration mise à jour par ${userEmail}.`);
     return { success: true, message: "Configuration enregistrée avec succès." };
@@ -131,5 +153,7 @@ function saveConfiguration(newConfig) {
   } catch (e) {
     Logger.log(`Échec de la sauvegarde de la configuration par ${userEmail}. Erreur: ${e.stack}`);
     return { success: false, message: `Une erreur est survenue: ${e.message}` };
+  } finally {
+    lock.releaseLock();
   }
 }
