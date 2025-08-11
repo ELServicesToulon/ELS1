@@ -20,12 +20,16 @@ function getProperty(properties, key, defaultValue = null) {
     if (value === null) {
         return defaultValue;
     }
+    // Grâce à la nouvelle logique de sauvegarde, on sait que toutes les propriétés
+    // sont stockées en format JSON. On peut donc parser directement.
     try {
-        // Tente de parser en tant que JSON. Si ça échoue, retourne la chaîne.
-        // Cela gère les objets, tableaux, booléens et nombres stockés en tant que chaînes.
         return JSON.parse(value);
     } catch (e) {
-        return value; // Retourne la chaîne si ce n'est pas un JSON valide.
+        // Si le parse échoue, c'est une erreur inattendue.
+        // Cela peut arriver si les propriétés ont été modifiées manuellement avec un format invalide.
+        Logger.log(`Erreur de parsing JSON pour la clé '${key}'. Valeur: '${value}'. Erreur: ${e.message}`);
+        // On retourne la valeur par défaut pour éviter un crash complet.
+        return defaultValue;
     }
 }
 
