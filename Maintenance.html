@@ -64,7 +64,6 @@ function notifyAdminWithThrottle(typeErreur, sujet, corps) {
 // =================================================================
 
 function sauvegarderCodeProjet() {
-  const CONFIG = getConfiguration();
   logAdminAction("Sauvegarde du code", "Démarré");
   let ui;
   try {
@@ -79,14 +78,7 @@ function sauvegarderCodeProjet() {
     if (!fichiers) {
       throw new Error("Impossible de récupérer les fichiers du projet. L'API Google Apps Script est peut-être désactivée.");
     }
-    
-    const horodatage = formaterDatePersonnalise(new Date(), "yyyy-MM-dd'_'HH'h'mm");
-    const nomDossierSauvegarde = `Sauvegarde Code ${horodatage}`;
-    
-    const dossierProjet = DriveApp.getFileById(CONFIG.ID_FEUILLE_CALCUL).getParents().next();
-    const dossierParentSauvegardes = obtenirOuCreerDossier(dossierProjet, "Sauvegardes Code");
-    const dossierSauvegarde = dossierParentSauvegardes.createFolder(nomDossierSauvegarde);
-    
+
     fichiers.forEach(fichier => {
       let nomFichier;
       switch (fichier.type) {
