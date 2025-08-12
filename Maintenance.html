@@ -13,6 +13,7 @@
 // =================================================================
 
 function logAdminAction(action, statut) {
+  const CONFIG = getConfiguration();
   try {
     const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
     let feuilleLog = ss.getSheetByName("Admin_Logs");
@@ -28,6 +29,7 @@ function logAdminAction(action, statut) {
 }
 
 function logActivity(idReservation, emailClient, resume, prix, statut) {
+  const CONFIG = getConfiguration();
   try {
     const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
     let feuilleLog = ss.getSheetByName("Logs");
@@ -42,6 +44,7 @@ function logActivity(idReservation, emailClient, resume, prix, statut) {
 }
 
 function notifyAdminWithThrottle(typeErreur, sujet, corps) {
+  const CONFIG = getConfiguration();
   const cache = CacheService.getScriptCache();
   const cleCache = `erreur_notification_${typeErreur}`;
   if (cache.get(cleCache)) {
@@ -61,22 +64,30 @@ function notifyAdminWithThrottle(typeErreur, sujet, corps) {
 // =================================================================
 
 function sauvegarderCodeProjet() {
-  logAdminAction("Sauvegarde manuelle du code", "Démarré");
-  const ui = SpreadsheetApp.getUi();
-  try {
-    const fichiers = recupererTousLesFichiersProjet();
-    if (!fichiers) {
-      throw new Error("Impossible de récupérer les fichiers du projet. L'API Google Apps Script est peut-être désactivée.");
-    }
-    
-    const horodatage = formaterDatePersonnalise(new Date(), "yyyy-MM-dd'_'HH'h'mm");
-    const nomDossierSauvegarde = `Sauvegarde Code ${horodatage}`;
-    
-    const dossierProjet = DriveApp.getFileById(CONFIG.ID_FEUILLE_CALCUL).getParents().next();
-    const dossierParentSauvegardes = obtenirOuCreerDossier(dossierProjet, "Sauvegardes Code");
-    const dossierSauvegarde = dossierParentSauvegardes.createFolder(nomDossierSauvegarde);
-    
-    fichiers.forEach(fichier => {
+  const CONFIG = getConfiguration();
+  logAdminAction("Sauvegarde du code", "Démarré");
+  let ui;
+  try {
+    ui = SpreadsheetApp.getUi();
+  } catch (e) {
+    // UI non disponible (ex: exécution par déclencheur), on continue sans UI.
+    ui = null;
+  }
+
+  try {
+    const fichiers = recupererTousLesFichiersProjet();
+    if (!fichiers) {
+      throw new Error("Impossible de récupérer les fichiers du projet. L'API Google Apps Script est peut-être désactivée.");
+    }
+
+    const horodatage = formaterDatePersonnalise(new Date(), "yyyy-MM-dd'_'HH'h'mm");
+    const nomDossierSauvegarde = `Sauvegarde Code ${horodatage}`;
+
+    const dossierProjet = DriveApp.getFileById(CONFIG.ID_FEUILLE_CALCUL).getParents().next();
+    const dossierParentSauvegardes = obtenirOuCreerDossier(dossierProjet, "Sauvegardes Code");
+    const dossierSauvegarde = dossierParentSauvegardes.createFolder(nomDossierSauvegarde);
+
+    fichiers.forEach(fichier => {
       let nomFichier;
       switch (fichier.type) {
         case 'SERVER_JS':
@@ -89,24 +100,33 @@ function sauvegarderCodeProjet() {
           nomFichier = `${fichier.name}.json`;
           break;
         default:
-          // Fallback pour les types de fichiers inattendus, avec log.
           nomFichier = `${fichier.name}.txt`;
           Logger.log(`Type de fichier inconnu durant la sauvegarde : ${fichier.type}. Fichier "${fichier.name}" sauvegardé comme .txt`);
           break;
       }
-      dossierSauvegarde.createFile(nomFichier, fichier.source, MimeType.PLAIN_TEXT);
-    });
+      dossierSauvegarde.createFile(nomFichier, fichier.source, MimeType.PLAIN_TEXT);
+    });
 
-    ui.alert('Sauvegarde Réussie', `Le projet a été sauvegardé dans le dossier :\n"${nomDossierSauvegarde}"`, ui.ButtonSet.OK);
-    logAdminAction("Sauvegarde manuelle du code", "Succès");
-  } catch (e) {
-    Logger.log(`Erreur de sauvegarde manuelle : ${e.stack}`);
-    ui.alert('Erreur de sauvegarde', `Une erreur est survenue : ${e.message}`, ui.ButtonSet.OK);
-    logAdminAction("Sauvegarde manuelle du code", `Échec : ${e.message}`);
-  }
+    const messageSucces = `Le projet a été sauvegardé dans le dossier : "${nomDossierSauvegarde}"`;
+    if (ui) {
+      ui.alert('Sauvegarde Réussie', messageSucces, ui.ButtonSet.OK);
+    } else {
+      Logger.log(messageSucces);
+    }
+    logAdminAction("Sauvegarde du code", "Succès");
+
+  } catch (e) {
+    const messageErreur = `Une erreur est survenue lors de la sauvegarde du code : ${e.message}`;
+    Logger.log(`Erreur de sauvegarde : ${e.stack}`);
+    if (ui) {
+      ui.alert('Erreur de sauvegarde', messageErreur, ui.ButtonSet.OK);
+    }
+    logAdminAction("Sauvegarde du code", `Échec : ${e.message}`);
+  }
 }
 
 function sauvegarderDonnees() {
+  const CONFIG = getConfiguration();
   logAdminAction("Sauvegarde des données", "Démarré");
   try {
     const ssOriginale = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
@@ -174,6 +194,7 @@ function recupererTousLesFichiersProjet() {
 // =================================================================
 
 function purgerAnciennesDonnees() {
+  const CONFIG = getConfiguration();
   logAdminAction("Purge RGPD (Données + Fichiers)", "Démarré");
   try {
     const ss = SpreadsheetApp.openById(CONFIG.ID_FEUILLE_CALCUL);
@@ -287,6 +308,7 @@ function purgerTokensExpires() {
 // =================================================================
 
 function verifierCoherenceCalendrier() {
+  const CONFIG = getConfiguration();
   const ui = SpreadsheetApp.getUi();
   ui.alert("Démarrage de l'audit", "La vérification de la cohérence avec le calendrier va commencer...", ui.ButtonSet.OK);
   logAdminAction("Vérification Cohérence Calendrier", "Démarré");
